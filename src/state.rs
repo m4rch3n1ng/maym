@@ -1,29 +1,32 @@
 use crate::player::Player;
+use serde::{Deserialize, Serialize};
+use std::{fs, time::Duration};
 
-#[derive(Debug)]
+const PATH: &str = "/home/may/.config/m4rch/player/status.json";
+
+#[serde_with::serde_as]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct State {
-	volume: f64,
-	paused: bool,
-	muted: bool,
-	remaining: Option<f64>,
-	duration: Option<f64>,
+	pub volume: f64,
+	#[serde(skip)]
+	pub paused: bool,
+	pub muted: bool,
+	#[serde_as(as = "Option<serde_with::DurationSeconds<u64>>")]
+	pub remaining: Option<Duration>,
+	#[serde_as(as = "Option<serde_with::DurationSeconds<u64>>")]
+	pub duration: Option<Duration>,
+	pub track: Option<String>,
 }
 
 impl State {
-	pub fn new(player: &Player) -> Self {
-		let volume = player.volume();
-		let paused = player.paused();
-		let muted = player.muted();
-		let remaining = player.remaining();
-		let duration = player.duration();
+	pub fn init() -> Self {
+		let file = fs::read_to_string(PATH).unwrap();
+		serde_json::from_str(&file).unwrap()
+	}
 
-		State {
-			volume,
-			paused,
-			muted,
-			remaining,
-			duration,
-		}
+	pub fn elapsed(&self) -> Option<Duration> {
+		self.duration
+			.and_then(|duration| self.remaining.map(|remaining| duration - remaining))
 	}
 
 	pub fn tick(&mut self, player: &Player) {
@@ -32,5 +35,31 @@ impl State {
 		self.muted = player.muted();
 		self.remaining = player.remaining();
 		self.duration = player.duration();
+		self.track = player.track();
+	}
+
+	pub fn write(&self) {
+		let mut buf = Vec::new();
+		let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
+		let mut json_serializer = serde_json::Serializer::with_formatter(&mut buf, formatter);
+
+		self.serialize(&mut json_serializer).unwrap();
+		let mut serialized = String::from_utf8(buf).unwrap();
+		serialized.push('\n');
+
+		fs::write(PATH, serialized).unwrap();
+	}
+}
+
+impl Default for State {
+	fn default() -> Self {
+		State {
+			volume: 50.0,
+			paused: false,
+			muted: false,
+			remaining: None,
+			duration: None,
+			track: None,
+		}
 	}
 }

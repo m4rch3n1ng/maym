@@ -1,19 +1,16 @@
+use self::{player::Player, state::State, tui::Tui};
 use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
+};
+use ratatui::{
+	prelude::{Backend, CrosstermBackend},
+	Terminal,
 };
 use std::{
 	io,
 	time::{Duration, Instant},
 };
-
-use player::Player;
-use ratatui::{
-	prelude::{Backend, CrosstermBackend},
-	Terminal,
-};
-use state::State;
-use tui::Tui;
 
 mod player;
 mod state;
@@ -29,9 +26,11 @@ struct Application {
 
 impl Application {
 	pub fn new() -> Self {
-		let player = Player::new();
 		let tui = Tui::new();
-		let state = State::new(&player);
+		let state = State::init();
+
+		let mut player = Player::new();
+		player.revive(&state);
 
 		let tick = Duration::from_millis(100);
 
@@ -45,6 +44,7 @@ impl Application {
 
 	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) {
 		let mut last = Instant::now();
+		let mut ticks = 0;
 
 		loop {
 			terminal.draw(|f| self.tui.ui(f, &self.state)).unwrap();
@@ -66,6 +66,14 @@ impl Application {
 			if last.elapsed() >= self.tick {
 				self.state.tick(&self.player);
 				last = Instant::now();
+
+				// todo amt
+				if ticks >= 10 {
+					self.state.write();
+					ticks = 0;
+				} else {
+					ticks += 1;
+				}
 			}
 		}
 	}
@@ -106,7 +114,9 @@ fn main() {
 
 	let mut app = Application::new();
 	app.player
-		.queue("/home/may/tmp/music/album/Long Sought Rest - sacred objects/05 bleeding heart.mp3");
+		.queue("/home/may/tmp/music/mix/all/woe is me ~ ana kennedy ft. Left At London.mp3");
+	app.player
+		.queue("/home/may/tmp/music/mix/all/bleeding heart ~ Long Sought Rest.mp3");
 
 	app.start();
 }

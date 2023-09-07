@@ -1,5 +1,8 @@
+use crate::state::State;
 use mpv::{MpvHandler, MpvHandlerBuilder};
+use serde::Deserialize;
 use std::fmt::Debug;
+use std::time::Duration;
 
 pub struct Player(MpvHandler);
 
@@ -23,15 +26,33 @@ impl Player {
 			.expect("couldn't build mpv handler builder");
 
 		mpv.set_option("vo", "null").expect("couldn't set vo=null");
-		mpv.set_option("volume", "50").expect("couldn't set volume");
 
 		Player(mpv)
+	}
+
+	pub fn revive(&mut self, state: &State) {
+		self.0.set_property("volume", state.volume).unwrap();
+		self.0.set_property("mute", state.muted).unwrap();
+
+		if let Some(track) = state.track.as_deref() {
+			// let start = state.duration.map_or()
+			let start = state.elapsed();
+			let start = start.unwrap_or_default();
+			self.restart(track, start);
+		}
 	}
 
 	pub fn queue(&mut self, track: &str) {
 		self.0
 			.command(&["loadfile", &track, "append-play"])
 			.expect("error loading file");
+	}
+
+	fn restart(&mut self, track: &str, start: Duration) {
+		let start = format!("start={},pause=yes", start.as_secs());
+		self.0
+			.command(&["loadfile", track, "replace", &start])
+			.expect("couldn't reload file");
 	}
 
 	pub fn replace(&mut self, track: &str) {
@@ -57,17 +78,17 @@ impl Player {
 			.expect("couldn't get pause state")
 	}
 
-	pub fn duration(&self) -> Option<f64> {
+	pub fn duration(&self) -> Option<Duration> {
 		match self.0.get_property("duration") {
-			Ok(duration) => Some(duration),
+			Ok(duration) => Some(Duration::from_secs_f64(duration)),
 			Err(mpv::Error::MPV_ERROR_PROPERTY_UNAVAILABLE) => None,
 			Err(err) => panic!("couldn't get duration {}", err),
 		}
 	}
 
-	pub fn remaining(&self) -> Option<f64> {
+	pub fn remaining(&self) -> Option<Duration> {
 		match self.0.get_property("time-remaining") {
-			Ok(remaining) => Some(remaining),
+			Ok(remaining) => Some(Duration::from_secs_f64(remaining)),
 			Err(mpv::Error::MPV_ERROR_PROPERTY_UNAVAILABLE) => None,
 			Err(err) => panic!("couldn't get duration {}", err),
 		}
@@ -101,4 +122,21 @@ impl Player {
 			.set_property("volume", vol)
 			.expect("couldn't set volume");
 	}
+
+	// todo maybe move that functionality into the queue
+	pub fn track(&self) -> Option<String> {
+		let tr = self.0.get_property::<&str>("playlist").unwrap();
+		let thing = serde_json::from_str::<Vec<Track>>(tr).unwrap();
+
+		let find = thing
+			.into_iter()
+			.find(|track| track.current.is_some_and(|b| b));
+		find.map(|track| track.filename)
+	}
+}
+
+#[derive(Debug, Deserialize)]
+struct Track {
+	filename: String,
+	current: Option<bool>,
 }
