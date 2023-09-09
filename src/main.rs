@@ -29,7 +29,7 @@ struct Application {
 
 impl Application {
 	pub fn new() -> Self {
-		let tui = Tui::new();
+		let tui = Tui;
 		let state = State::init();
 		let queue = Queue::state(&state);
 
@@ -56,6 +56,7 @@ impl Application {
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout).unwrap() {
+				// todo check if press
 				if let Event::Key(key) = event::read().unwrap() {
 					match (key.code, key.modifiers) {
 						(KeyCode::Char('q'), _) => return,
@@ -66,6 +67,16 @@ impl Application {
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
 							self.queue.next(&mut self.player).unwrap()
 						}
+						(KeyCode::Left, KeyModifiers::SHIFT) => {
+							self.queue.last(&mut self.player);
+						}
+						(KeyCode::Char('0'), _) => self.queue.restart(&mut self.player),
+						(KeyCode::Left, KeyModifiers::NONE) => {
+							self.queue.seek_d(&mut self.player, &self.state, 5)
+						}
+						(KeyCode::Right, KeyModifiers::NONE) => {
+							self.queue.seek_i(&mut self.player, &self.state, 5)
+						}
 						_ => {}
 					}
 				}
@@ -73,6 +84,8 @@ impl Application {
 
 			if last.elapsed() >= self.tick {
 				self.state.tick(&self.player, &self.queue);
+				self.queue.done(&mut self.player, &self.state);
+
 				last = Instant::now();
 
 				// todo amt

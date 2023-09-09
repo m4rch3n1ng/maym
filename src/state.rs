@@ -31,6 +31,24 @@ impl State {
 			.and_then(|duration| self.remaining.map(|remaining| duration - remaining))
 	}
 
+	pub fn done(&self) -> bool {
+		!self.paused && self.track.is_some() && self.duration.is_none() && self.remaining.is_none()
+	}
+
+	pub fn almost(&self) -> bool {
+		if self.paused {
+			return false;
+		}
+
+		let threshold = Duration::from_millis(500);
+
+		if let Some(remaining) = self.remaining {
+			remaining <= threshold
+		} else {
+			false
+		}
+	}
+
 	pub fn tick(&mut self, player: &Player, queue: &Queue) {
 		self.volume = player.volume();
 		self.paused = player.paused();
@@ -40,7 +58,7 @@ impl State {
 
 		self.shuffle = queue.is_shuffle();
 		self.queue = queue.path();
-		self.track = queue.track().map(|track| track.path_str());
+		self.track = queue.track().map(|track| track.as_str().to_owned());
 	}
 
 	pub fn write(&self) {

@@ -1,7 +1,9 @@
 use rand::seq::IteratorRandom;
 use std::{
+	collections::VecDeque,
 	fs,
 	path::{Path, PathBuf},
+	time::Duration,
 };
 use thiserror::Error;
 
@@ -18,12 +20,6 @@ pub enum QueueError {
 #[derive(Debug, Clone)]
 pub struct Track {
 	path: PathBuf,
-}
-
-impl AsRef<str> for Track {
-	fn as_ref(&self) -> &str {
-		self.path.to_str().unwrap()
-	}
 }
 
 impl Track {
@@ -46,12 +42,10 @@ impl Track {
 			.collect::<Vec<_>>()
 	}
 
-	pub fn path_str(&self) -> String {
+	pub fn as_str(&self) -> &str {
 		self.path
-			.clone()
-			.into_os_string()
-			.into_string()
-			.unwrap_or_else(|path| panic!("path {:?} is not utf-8", path))
+			.to_str()
+			.unwrap_or_else(|| panic!("invalid utf-8 in {:?}", self.path))
 	}
 }
 
@@ -85,6 +79,8 @@ impl PartialEq<PathBuf> for Track {
 pub struct Queue {
 	path: Option<PathBuf>,
 	tracks: Vec<Track>,
+	last: VecDeque<Track>,
+	next: Vec<Track>,
 	current: Option<Track>,
 	shuffle: bool,
 }
@@ -103,9 +99,14 @@ impl Queue {
 			.and_then(|track| Track::try_from(track).ok());
 		let shuffle = state.shuffle;
 
+		let last = VecDeque::new();
+		let next = vec![];
+
 		Queue {
 			path,
 			tracks,
+			last,
+			next,
 			current,
 			shuffle,
 		}
@@ -123,19 +124,101 @@ impl Queue {
 		self.current.as_ref()
 	}
 
+	fn dequeue(&mut self) {
+		if let Some(current) = self.current.as_ref() {
+			self.last.push_back(current.clone());
+
+			if self.last.len() > 25 {
+				self.last.pop_front();
+			}
+		}
+	}
+
+	pub fn last(&mut self, player: &mut Player) {
+		if let Some(current) = self.current.as_ref() {
+			self.next.push(current.clone());
+		}
+
+		if let Some(track) = self.last.pop_back() {
+			player.replace(track.as_str());
+			self.current = Some(track);
+		}
+	}
+
 	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
-		let mut rng = rand::thread_rng();
-		let track = self
-			.tracks
-			.iter()
-			.choose(&mut rng)
-			.ok_or(QueueError::NoTracks)?;
+		self.dequeue();
 
-		self.current = Some(track.clone());
+		if let Some(track) = self.next.pop() {
+			player.replace(track.as_str());
+			self.current = Some(track);
+		} else {
+			let mut rng = rand::thread_rng();
+			let track = self
+				.tracks
+				.iter()
+				.choose(&mut rng)
+				.ok_or(QueueError::NoTracks)?;
 
-		let track_str = track.path_str();
-		player.replace(&track_str);
+			self.current = Some(track.clone());
+			player.replace(track.as_str());
+		}
 
 		Ok(())
+	}
+
+	pub fn restart(&self, player: &mut Player) {
+		if self.current.is_some() {
+			let start = Duration::ZERO;
+			player.seek(start);
+		}
+	}
+
+	pub fn seek_d(&self, player: &mut Player, state: &State, amt: u64) {
+		if self.current.is_some() {
+			if let Some(elapsed) = state.elapsed() {
+				let amt = Duration::from_secs(amt);
+				let start = elapsed.saturating_sub(amt);
+
+				player.seek(start)
+			}
+		}
+	}
+
+	// todo fix loop around at the end
+	pub fn seek_i(&self, player: &mut Player, state: &State, amt: u64) {
+		if self.current.is_some() {
+			if let Some(elapsed) = state.elapsed() {
+				let duration = state
+					.duration
+					.expect("state.duration should unwrap if state.elapsed() is some");
+
+				let amt = Duration::from_secs(amt);
+				let start = Duration::min(duration, elapsed + amt);
+				println!("start {:?}\r", start);
+
+				player.seek(start);
+			}
+		}
+	}
+
+	// todo refactor and shit
+	// todo error handling
+	pub fn done(&mut self, player: &mut Player, state: &State) {
+		if state.almost() {
+			let mut rng = rand::thread_rng();
+			let track = self
+				.tracks
+				.iter()
+				.choose(&mut rng)
+				.ok_or(QueueError::NoTracks)
+				.unwrap();
+
+			self.current = Some(track.clone());
+			player.queue(track.as_str());
+		}
+
+		if state.done() {
+			self.next(player).unwrap();
+		}
 	}
 }

@@ -38,7 +38,7 @@ impl Player {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
 
-			let track = track.as_ref();
+			let track = track.as_str();
 			self.restart(track, start);
 		}
 	}
@@ -47,6 +47,11 @@ impl Player {
 		self.0
 			.command(&["loadfile", &track, "append-play"])
 			.expect("error loading file");
+	}
+
+	pub fn seek(&mut self, start: Duration) {
+		let start = start.as_secs_f64();
+		self.0.set_property("time-pos", start).unwrap();
 	}
 
 	fn restart(&mut self, track: &str, start: Duration) {
