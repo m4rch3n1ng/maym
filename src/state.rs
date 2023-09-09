@@ -7,7 +7,7 @@ const PATH: &str = "/home/may/.config/m4rch/player/status.json";
 #[serde_with::serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
-	pub volume: f64,
+	pub volume: u64,
 	#[serde(skip)]
 	pub paused: bool,
 	pub muted: bool,
@@ -77,7 +77,7 @@ impl State {
 impl Default for State {
 	fn default() -> Self {
 		State {
-			volume: 50.0,
+			volume: 50,
 			paused: false,
 			muted: false,
 			remaining: None,

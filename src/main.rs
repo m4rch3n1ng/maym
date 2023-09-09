@@ -1,4 +1,5 @@
-use self::{player::Player, state::State, tui::Tui};
+use self::{player::Player, state::State};
+use config::Config;
 use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
@@ -13,6 +14,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
+mod config;
 mod player;
 mod queue;
 mod state;
@@ -21,7 +23,7 @@ mod tui;
 #[derive(Debug)]
 struct Application {
 	pub player: Player,
-	pub tui: Tui,
+	pub config: Config,
 	pub state: State,
 	pub queue: Queue,
 	tick: Duration,
@@ -29,7 +31,7 @@ struct Application {
 
 impl Application {
 	pub fn new() -> Self {
-		let tui = Tui;
+		let config = Config::init();
 		let state = State::init();
 		let queue = Queue::state(&state);
 
@@ -40,7 +42,7 @@ impl Application {
 
 		Application {
 			player,
-			tui,
+			config,
 			state,
 			queue,
 			tick,
@@ -51,8 +53,11 @@ impl Application {
 		let mut last = Instant::now();
 		let mut ticks = 0;
 
+		let seek = self.config.seek();
+		let vol = self.config.vol();
+
 		loop {
-			terminal.draw(|f| self.tui.ui(f, &self.state)).unwrap();
+			terminal.draw(|f| tui::ui(f, &self.state)).unwrap();
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout).unwrap() {
@@ -62,8 +67,8 @@ impl Application {
 						(KeyCode::Char('q'), _) => return,
 						(KeyCode::Char(' '), _) => self.player.toggle(),
 						(KeyCode::Char('m'), _) => self.player.mute(),
-						(KeyCode::Up, KeyModifiers::SHIFT) => self.player.i_vol(5f64),
-						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(5f64),
+						(KeyCode::Up, KeyModifiers::SHIFT) => self.player.i_vol(vol),
+						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
 							self.queue.next(&mut self.player).unwrap()
 						}
@@ -72,10 +77,10 @@ impl Application {
 						}
 						(KeyCode::Char('0'), _) => self.queue.restart(&mut self.player),
 						(KeyCode::Left, KeyModifiers::NONE) => {
-							self.queue.seek_d(&mut self.player, &self.state, 5)
+							self.queue.seek_d(&mut self.player, &self.state, seek)
 						}
 						(KeyCode::Right, KeyModifiers::NONE) => {
-							self.queue.seek_i(&mut self.player, &self.state, 5)
+							self.queue.seek_i(&mut self.player, &self.state, seek)
 						}
 						_ => {}
 					}

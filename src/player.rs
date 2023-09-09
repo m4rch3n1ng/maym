@@ -31,7 +31,7 @@ impl Player {
 	}
 
 	pub fn state(&mut self, queue: &Queue, state: &State) {
-		self.0.set_property("volume", state.volume).unwrap();
+		self.0.set_property("volume", state.volume as i64).unwrap();
 		self.0.set_property("mute", state.muted).unwrap();
 
 		if let Some(track) = queue.track() {
@@ -74,8 +74,13 @@ impl Player {
 			.expect("couldn't toggle player");
 	}
 
-	pub fn volume(&self) -> f64 {
-		self.0.get_property("volume").expect("couldn't get volume")
+	// todo do smth with negative values
+	pub fn volume(&self) -> u64 {
+		let vol = self
+			.0
+			.get_property::<i64>("volume")
+			.expect("couldn't get volume");
+		vol as u64
 	}
 
 	pub fn paused(&self) -> bool {
@@ -111,21 +116,21 @@ impl Player {
 		self.0.get_property("mute").expect("couldn't get mute")
 	}
 
-	pub fn i_vol(&mut self, amt: f64) {
+	pub fn i_vol(&mut self, amt: u64) {
 		let vol = self.volume();
-		let vol = f64::min(100f64, vol + amt);
+		let vol = u64::min(100, vol + amt);
 
 		self.0
-			.set_property("volume", vol)
+			.set_property("volume", vol as i64)
 			.expect("couldn't get volume");
 	}
 
-	pub fn d_vol(&mut self, amt: f64) {
+	pub fn d_vol(&mut self, amt: u64) {
 		let vol = self.volume();
-		let vol = f64::max(0f64, vol - amt);
+		let vol = vol.saturating_sub(amt);
 
 		self.0
-			.set_property("volume", vol)
+			.set_property("volume", vol as i64)
 			.expect("couldn't set volume");
 	}
 }
