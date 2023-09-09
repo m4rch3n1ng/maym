@@ -3,6 +3,7 @@ use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
 };
+use queue::Queue;
 use ratatui::{
 	prelude::{Backend, CrosstermBackend},
 	Terminal,
@@ -13,6 +14,7 @@ use std::{
 };
 
 mod player;
+mod queue;
 mod state;
 mod tui;
 
@@ -21,6 +23,7 @@ struct Application {
 	pub player: Player,
 	pub tui: Tui,
 	pub state: State,
+	pub queue: Queue,
 	tick: Duration,
 }
 
@@ -28,9 +31,10 @@ impl Application {
 	pub fn new() -> Self {
 		let tui = Tui::new();
 		let state = State::init();
+		let queue = Queue::state(&state);
 
 		let mut player = Player::new();
-		player.revive(&state);
+		player.state(&queue, &state);
 
 		let tick = Duration::from_millis(100);
 
@@ -38,6 +42,7 @@ impl Application {
 			player,
 			tui,
 			state,
+			queue,
 			tick,
 		}
 	}
@@ -58,13 +63,16 @@ impl Application {
 						(KeyCode::Char('m'), _) => self.player.mute(),
 						(KeyCode::Up, KeyModifiers::SHIFT) => self.player.i_vol(5f64),
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(5f64),
+						(KeyCode::Right, KeyModifiers::SHIFT) => {
+							self.queue.next(&mut self.player).unwrap()
+						}
 						_ => {}
 					}
 				}
 			}
 
 			if last.elapsed() >= self.tick {
-				self.state.tick(&self.player);
+				self.state.tick(&self.player, &self.queue);
 				last = Instant::now();
 
 				// todo amt
@@ -113,10 +121,6 @@ fn main() {
 	color_eyre::install().unwrap();
 
 	let mut app = Application::new();
-	app.player
-		.queue("/home/may/tmp/music/mix/all/woe is me ~ ana kennedy ft. Left At London.mp3");
-	app.player
-		.queue("/home/may/tmp/music/mix/all/bleeding heart ~ Long Sought Rest.mp3");
 
 	app.start();
 }

@@ -1,6 +1,6 @@
+use crate::queue::Queue;
 use crate::state::State;
 use mpv::{MpvHandler, MpvHandlerBuilder};
-use serde::Deserialize;
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -30,14 +30,15 @@ impl Player {
 		Player(mpv)
 	}
 
-	pub fn revive(&mut self, state: &State) {
+	pub fn state(&mut self, queue: &Queue, state: &State) {
 		self.0.set_property("volume", state.volume).unwrap();
 		self.0.set_property("mute", state.muted).unwrap();
 
-		if let Some(track) = state.track.as_deref() {
-			// let start = state.duration.map_or()
+		if let Some(track) = queue.track() {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
+
+			let track = track.as_ref();
 			self.restart(track, start);
 		}
 	}
@@ -122,21 +123,4 @@ impl Player {
 			.set_property("volume", vol)
 			.expect("couldn't set volume");
 	}
-
-	// todo maybe move that functionality into the queue
-	pub fn track(&self) -> Option<String> {
-		let tr = self.0.get_property::<&str>("playlist").unwrap();
-		let thing = serde_json::from_str::<Vec<Track>>(tr).unwrap();
-
-		let find = thing
-			.into_iter()
-			.find(|track| track.current.is_some_and(|b| b));
-		find.map(|track| track.filename)
-	}
-}
-
-#[derive(Debug, Deserialize)]
-struct Track {
-	filename: String,
-	current: Option<bool>,
 }

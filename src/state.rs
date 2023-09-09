@@ -1,6 +1,6 @@
-use crate::player::Player;
+use crate::{player::Player, queue::Queue};
 use serde::{Deserialize, Serialize};
-use std::{fs, time::Duration};
+use std::{fs, path::PathBuf, time::Duration};
 
 const PATH: &str = "/home/may/.config/m4rch/player/status.json";
 
@@ -11,10 +11,12 @@ pub struct State {
 	#[serde(skip)]
 	pub paused: bool,
 	pub muted: bool,
-	#[serde_as(as = "Option<serde_with::DurationSeconds<u64>>")]
+	#[serde_as(as = "Option<serde_with::DurationSeconds>")]
 	pub remaining: Option<Duration>,
-	#[serde_as(as = "Option<serde_with::DurationSeconds<u64>>")]
+	#[serde_as(as = "Option<serde_with::DurationSeconds>")]
 	pub duration: Option<Duration>,
+	pub shuffle: bool,
+	pub queue: Option<PathBuf>,
 	pub track: Option<String>,
 }
 
@@ -29,13 +31,16 @@ impl State {
 			.and_then(|duration| self.remaining.map(|remaining| duration - remaining))
 	}
 
-	pub fn tick(&mut self, player: &Player) {
+	pub fn tick(&mut self, player: &Player, queue: &Queue) {
 		self.volume = player.volume();
 		self.paused = player.paused();
 		self.muted = player.muted();
 		self.remaining = player.remaining();
 		self.duration = player.duration();
-		self.track = player.track();
+
+		self.shuffle = queue.is_shuffle();
+		self.queue = queue.path();
+		self.track = queue.track().map(|track| track.path_str());
 	}
 
 	pub fn write(&self) {
@@ -59,6 +64,8 @@ impl Default for State {
 			muted: false,
 			remaining: None,
 			duration: None,
+			shuffle: true,
+			queue: None,
 			track: None,
 		}
 	}
