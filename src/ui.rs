@@ -1,8 +1,13 @@
 use crate::state::State;
 use ratatui::{prelude::Backend, Frame};
 
-pub fn draw<B: Backend>(frame: &mut Frame<B>, state: &State) {
-	// todo!
+#[derive(Debug, Default)]
+pub struct Ui {}
 
-	println!("tick {:?}\r", state);
+impl Ui {
+	pub fn draw<B: Backend>(&mut self, frame: &mut Frame<B>, state: &State) {
+		// todo!
+
+		println!("tick {:?}\r", state);
+	}
 }

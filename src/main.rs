@@ -13,6 +13,7 @@ use std::{
 	io,
 	time::{Duration, Instant},
 };
+use ui::Ui;
 
 mod config;
 mod player;
@@ -26,6 +27,7 @@ struct Application {
 	pub config: Config,
 	pub state: State,
 	pub queue: Queue,
+	pub ui: Ui,
 	tick: Duration,
 }
 
@@ -38,6 +40,8 @@ impl Application {
 		let mut player = Player::new();
 		player.state(&queue, &state);
 
+		let ui = Ui::default();
+
 		let tick = Duration::from_millis(100);
 
 		Application {
@@ -45,6 +49,7 @@ impl Application {
 			config,
 			state,
 			queue,
+			ui,
 			tick,
 		}
 	}
@@ -57,7 +62,7 @@ impl Application {
 		let vol = self.config.vol();
 
 		loop {
-			terminal.draw(|f| ui::draw(f, &self.state)).unwrap();
+			terminal.draw(|f| self.ui.draw(f, &self.state)).unwrap();
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout).unwrap() {
