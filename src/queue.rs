@@ -190,11 +190,7 @@ impl Queue {
 	// todo fix loop around at the end
 	pub fn seek_i(&self, player: &mut Player, state: &State, amt: u64) {
 		if self.current.is_some() {
-			if let Some(elapsed) = state.elapsed() {
-				let duration = state
-					.duration
-					.expect("state.duration should unwrap if state.elapsed() is some");
-
+			if let Some((elapsed, duration)) = state.elapsed_duration() {
 				let amt = Duration::from_secs(amt);
 				let start = Duration::min(duration, elapsed + amt);
 

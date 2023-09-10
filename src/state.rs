@@ -26,6 +26,16 @@ impl State {
 		serde_json::from_str(&file).unwrap()
 	}
 
+	pub fn elapsed_duration(&self) -> Option<(Duration, Duration)> {
+		if let Some(duration) = self.duration {
+			self.remaining
+				.map(|remaining| duration - remaining)
+				.map(|elapsed| (elapsed, duration))
+		} else {
+			None
+		}
+	}
+
 	#[inline]
 	pub fn elapsed(&self) -> Option<Duration> {
 		self.duration
