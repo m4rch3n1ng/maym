@@ -12,7 +12,7 @@ pub struct State {
 	pub paused: bool,
 	pub muted: bool,
 	#[serde_as(as = "Option<serde_with::DurationSeconds>")]
-	pub remaining: Option<Duration>,
+	pub elapsed: Option<Duration>,
 	#[serde_as(as = "Option<serde_with::DurationSeconds>")]
 	pub duration: Option<Duration>,
 	pub shuffle: bool,
@@ -27,10 +27,8 @@ impl State {
 	}
 
 	pub fn elapsed_duration(&self) -> Option<(Duration, Duration)> {
-		if let Some(duration) = self.duration {
-			self.remaining
-				.map(|remaining| duration - remaining)
-				.map(|elapsed| (elapsed, duration))
+		if let Some(elapsed) = self.elapsed {
+			self.duration.map(|duration| (elapsed, duration))
 		} else {
 			None
 		}
@@ -38,13 +36,17 @@ impl State {
 
 	#[inline]
 	pub fn elapsed(&self) -> Option<Duration> {
+		self.elapsed
+	}
+
+	pub fn remaining(&self) -> Option<Duration> {
 		self.duration
-			.and_then(|duration| self.remaining.map(|remaining| duration - remaining))
+			.and_then(|duration| self.elapsed.map(|elapsed| duration.saturating_sub(elapsed)))
 	}
 
 	#[inline]
 	pub fn done(&self) -> bool {
-		!self.paused && self.track.is_some() && self.duration.is_none() && self.remaining.is_none()
+		!self.paused && self.track.is_some() && self.duration.is_none() && self.elapsed.is_none()
 	}
 
 	pub fn almost(&self) -> bool {
@@ -54,7 +56,7 @@ impl State {
 
 		let threshold = Duration::from_millis(500);
 
-		if let Some(remaining) = self.remaining {
+		if let Some(remaining) = self.remaining() {
 			remaining <= threshold
 		} else {
 			false
@@ -65,8 +67,8 @@ impl State {
 		self.volume = player.volume();
 		self.paused = player.paused();
 		self.muted = player.muted();
-		self.remaining = player.remaining();
 		self.duration = player.duration();
+		self.elapsed = player.elapsed();
 
 		self.shuffle = queue.is_shuffle();
 		self.queue = queue.path();
@@ -92,7 +94,7 @@ impl Default for State {
 			volume: 50,
 			paused: false,
 			muted: false,
-			remaining: None,
+			elapsed: None,
 			duration: None,
 			shuffle: true,
 			queue: None,

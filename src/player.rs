@@ -97,9 +97,12 @@ impl Player {
 		}
 	}
 
-	pub fn remaining(&self) -> Option<Duration> {
-		match self.0.get_property("time-remaining") {
-			Ok(remaining) => Some(Duration::from_secs_f64(remaining)),
+	pub fn elapsed(&self) -> Option<Duration> {
+		match self.0.get_property::<f64>("time-pos") {
+			Ok(elapsed) => {
+				let elapsed = f64::max(0.0, elapsed);
+				Some(Duration::from_secs_f64(elapsed))
+			}
 			Err(mpv::Error::MPV_ERROR_PROPERTY_UNAVAILABLE) => None,
 			Err(err) => panic!("couldn't get duration {}", err),
 		}
