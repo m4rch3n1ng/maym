@@ -18,7 +18,7 @@ mod config;
 mod player;
 mod queue;
 mod state;
-mod tui;
+mod ui;
 
 #[derive(Debug)]
 struct Application {
@@ -57,7 +57,7 @@ impl Application {
 		let vol = self.config.vol();
 
 		loop {
-			terminal.draw(|f| tui::ui(f, &self.state)).unwrap();
+			terminal.draw(|f| ui::draw(f, &self.state)).unwrap();
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout).unwrap() {

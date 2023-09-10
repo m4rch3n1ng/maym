@@ -17,10 +17,12 @@ impl Config {
 		serde_json::from_str(&file).unwrap()
 	}
 
+	#[inline]
 	pub fn seek(&self) -> u64 {
 		self.seek.unwrap_or(5)
 	}
 
+	#[inline]
 	pub fn vol(&self) -> u64 {
 		self.vol.unwrap_or(5)
 	}

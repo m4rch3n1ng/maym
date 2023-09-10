@@ -112,14 +112,17 @@ impl Queue {
 		}
 	}
 
+	#[inline]
 	pub fn is_shuffle(&self) -> bool {
 		self.shuffle
 	}
 
+	#[inline]
 	pub fn path(&self) -> Option<PathBuf> {
 		self.path.clone()
 	}
 
+	#[inline]
 	pub fn track(&self) -> Option<&Track> {
 		self.current.as_ref()
 	}
@@ -194,7 +197,6 @@ impl Queue {
 
 				let amt = Duration::from_secs(amt);
 				let start = Duration::min(duration, elapsed + amt);
-				println!("start {:?}\r", start);
 
 				player.seek(start);
 			}

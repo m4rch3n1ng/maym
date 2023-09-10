@@ -26,11 +26,13 @@ impl State {
 		serde_json::from_str(&file).unwrap()
 	}
 
+	#[inline]
 	pub fn elapsed(&self) -> Option<Duration> {
 		self.duration
 			.and_then(|duration| self.remaining.map(|remaining| duration - remaining))
 	}
 
+	#[inline]
 	pub fn done(&self) -> bool {
 		!self.paused && self.track.is_some() && self.duration.is_none() && self.remaining.is_none()
 	}
