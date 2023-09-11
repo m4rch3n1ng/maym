@@ -69,9 +69,9 @@ impl Application {
 				// todo check if press
 				if let Event::Key(key) = event::read().unwrap() {
 					match (key.code, key.modifiers) {
-						(KeyCode::Char('q'), _) => return,
-						(KeyCode::Char(' '), _) => self.player.toggle(),
-						(KeyCode::Char('m'), _) => self.player.mute(),
+						(KeyCode::Char('q' | 'Q'), _) => return,
+						(KeyCode::Char(' ' | 'k'), KeyModifiers::NONE) => self.player.toggle(),
+						(KeyCode::Char('m'), KeyModifiers::NONE) => self.player.mute(),
 						(KeyCode::Up, KeyModifiers::SHIFT) => self.player.i_vol(vol),
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
@@ -80,7 +80,9 @@ impl Application {
 						(KeyCode::Left, KeyModifiers::SHIFT) => {
 							self.queue.last(&mut self.player);
 						}
-						(KeyCode::Char('0'), _) => self.queue.restart(&mut self.player),
+						(KeyCode::Char('0'), KeyModifiers::NONE) => {
+							self.queue.restart(&mut self.player)
+						}
 						(KeyCode::Left, KeyModifiers::NONE) => {
 							self.queue.seek_d(&mut self.player, &self.state, seek)
 						}
