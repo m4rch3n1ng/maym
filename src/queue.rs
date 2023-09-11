@@ -1,4 +1,6 @@
+use crate::{player::Player, state::State};
 use rand::seq::IteratorRandom;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{
 	collections::VecDeque,
 	fs,
@@ -6,8 +8,6 @@ use std::{
 	time::Duration,
 };
 use thiserror::Error;
-
-use crate::{player::Player, state::State};
 
 #[derive(Debug, Error)]
 pub enum QueueError {
@@ -22,11 +22,29 @@ pub struct Track {
 	path: PathBuf,
 }
 
+impl Serialize for Track {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.path.as_path().serialize(serializer)
+	}
+}
+
 impl Track {
 	// todo don't use
-	pub fn new(path: PathBuf) -> Self {
+	fn new(path: PathBuf) -> Self {
 		assert!(path.exists(), "path {:?} doesn't exist", path);
 		Track { path }
+	}
+
+	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Option<Track>, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let path_or: Option<PathBuf> = Deserialize::deserialize(data)?;
+		let track = path_or.and_then(|path| Track::try_from(path).ok());
+		Ok(track)
 	}
 
 	pub fn directory<P: AsRef<Path>>(path: P) -> Vec<Self> {
@@ -53,7 +71,7 @@ impl TryFrom<PathBuf> for Track {
 	type Error = QueueError;
 	fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
 		if path.exists() {
-			let track = Track { path };
+			let track = Track::new(path);
 			Ok(track)
 		} else {
 			Err(QueueError::NoTrack(path))
@@ -66,6 +84,12 @@ impl TryFrom<&str> for Track {
 	fn try_from(string: &str) -> Result<Self, Self::Error> {
 		let path = PathBuf::from(string);
 		Track::try_from(path)
+	}
+}
+
+impl PartialEq<Track> for Track {
+	fn eq(&self, other: &Track) -> bool {
+		self.path.eq(&other.path)
 	}
 }
 
@@ -93,10 +117,7 @@ impl Queue {
 			(vec![], None)
 		};
 
-		let current = state
-			.track
-			.as_deref()
-			.and_then(|track| Track::try_from(track).ok());
+		let current = state.track.clone();
 		let shuffle = state.shuffle;
 
 		let last = VecDeque::new();

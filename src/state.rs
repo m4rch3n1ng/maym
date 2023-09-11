@@ -1,4 +1,7 @@
-use crate::{player::Player, queue::Queue};
+use crate::{
+	player::Player,
+	queue::{Queue, Track},
+};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, time::Duration};
 
@@ -17,7 +20,8 @@ pub struct State {
 	pub duration: Option<Duration>,
 	pub shuffle: bool,
 	pub queue: Option<PathBuf>,
-	pub track: Option<String>,
+	#[serde(deserialize_with = "Track::maybe_deserialize")]
+	pub track: Option<Track>,
 }
 
 impl State {
@@ -72,7 +76,10 @@ impl State {
 
 		self.shuffle = queue.is_shuffle();
 		self.queue = queue.path();
-		self.track = queue.track().map(|track| track.as_str().to_owned());
+
+		if self.track.as_ref() != queue.track() {
+			self.track = queue.track().cloned()
+		}
 	}
 
 	pub fn write(&self) {
