@@ -31,11 +31,7 @@ impl State {
 	}
 
 	pub fn elapsed_duration(&self) -> Option<(Duration, Duration)> {
-		if let Some(elapsed) = self.elapsed {
-			self.duration.map(|duration| (elapsed, duration))
-		} else {
-			None
-		}
+		self.elapsed.zip(self.duration)
 	}
 
 	#[inline]

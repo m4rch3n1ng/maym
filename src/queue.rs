@@ -110,6 +110,7 @@ pub struct Queue {
 }
 
 impl Queue {
+	// todo check if current is in queue
 	pub fn state(state: &State) -> Self {
 		let (tracks, path) = if let Some(path) = state.queue.as_ref() {
 			(Track::directory(path), Some(path.clone()))
@@ -148,34 +149,21 @@ impl Queue {
 		self.current.as_ref()
 	}
 
-	fn dequeue(&mut self) {
-		if let Some(current) = self.current.as_ref() {
-			self.last.push_back(current.clone());
+	pub fn last(&mut self, player: &mut Player) {
+		if let Some(track) = self.last.pop_back() {
+			player.replace(track.as_str());
 
-			if self.last.len() > 25 {
-				self.last.pop_front();
+			if let Some(current) = self.current.replace(track) {
+				self.next.push(current)
 			}
 		}
 	}
 
-	pub fn last(&mut self, player: &mut Player) {
-		if let Some(current) = self.current.as_ref() {
-			self.next.push(current.clone());
-		}
-
-		if let Some(track) = self.last.pop_back() {
-			player.replace(track.as_str());
-			self.current = Some(track);
-		}
-	}
-
 	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
-		self.dequeue();
-
-		if let Some(track) = self.next.pop() {
-			player.replace(track.as_str());
-			self.current = Some(track);
+		let track = if let Some(track) = self.next.pop() {
+			track
 		} else {
+			// todo filter
 			let mut rng = rand::thread_rng();
 			let track = self
 				.tracks
@@ -183,8 +171,17 @@ impl Queue {
 				.choose(&mut rng)
 				.ok_or(QueueError::NoTracks)?;
 
-			self.current = Some(track.clone());
-			player.replace(track.as_str());
+				track.clone()
+		};
+
+		player.replace(track.as_str());
+		if let Some(current) = self.current.replace(track) {
+			self.last.push_back(current);
+
+			// todo this can probably be like a 1000 times higher
+			if self.last.len() > 25 {
+				self.last.pop_front();
+			}
 		}
 
 		Ok(())

@@ -139,9 +139,6 @@ impl Application {
 	}
 }
 
-#[derive(Debug)]
-struct Thing(u32);
-
 fn main() {
 	color_eyre::install().unwrap();
 
