@@ -4,7 +4,7 @@ use id3::{Tag, TagLike};
 use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fs, time::Duration};
+use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -94,6 +94,12 @@ impl Debug for Track {
 		self.tag.album().map(|album| dbg.field("album", &album));
 
 		dbg.finish()
+	}
+}
+
+impl Display for Track {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", self.path)
 	}
 }
 

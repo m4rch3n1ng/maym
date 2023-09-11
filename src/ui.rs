@@ -18,13 +18,19 @@ impl Ui {
 		let size = frame.size();
 		let (window, seek) = self.layout(size);
 
-		self.draw_main(frame, window);
+		self.draw_main(frame, window, state);
 		self.draw_seek(frame, seek, state);
 	}
 
-	fn draw_main(&self, frame: &mut Frame, area: Rect) {
+	fn draw_main(&self, frame: &mut Frame, area: Rect, state: &State) {
+		let text = state
+			.track
+			.as_ref()
+			.map(ToString::to_string)
+			.unwrap_or_default();
 		let block = Block::default().title("main").borders(Borders::ALL);
-		frame.render_widget(block, area);
+		let para = Paragraph::new(text).block(block);
+		frame.render_widget(para, area);
 	}
 
 	fn draw_seek(&self, frame: &mut Frame, area: Rect, state: &State) {
