@@ -1,8 +1,11 @@
 use crate::{player::Player, state::State};
+use id3::{Tag, TagLike};
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
+	cmp::Ordering,
 	collections::VecDeque,
+	fmt::Debug,
 	fs,
 	path::{Path, PathBuf},
 	time::Duration,
@@ -17,9 +20,10 @@ pub enum QueueError {
 	NoTracks,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Track {
 	path: PathBuf,
+	tag: Tag,
 }
 
 impl Serialize for Track {
@@ -35,7 +39,9 @@ impl Track {
 	// todo don't use
 	fn new(path: PathBuf) -> Self {
 		assert!(path.exists(), "path {:?} doesn't exist", path);
-		Track { path }
+
+		let tag = Tag::read_from_path(&path).unwrap_or_default();
+		Track { path, tag }
 	}
 
 	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Option<Track>, D::Error>
@@ -67,6 +73,19 @@ impl Track {
 	}
 }
 
+impl Debug for Track {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let mut dbg = f.debug_struct("Track");
+		dbg.field("path", &self.path);
+
+		self.tag.title().map(|title| dbg.field("title", &title));
+		self.tag.artist().map(|artist| dbg.field("artist", &artist));
+		self.tag.album().map(|album| dbg.field("album", &album));
+
+		dbg.finish()
+	}
+}
+
 impl TryFrom<PathBuf> for Track {
 	type Error = QueueError;
 	fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
@@ -87,6 +106,8 @@ impl TryFrom<&str> for Track {
 	}
 }
 
+impl Eq for Track {}
+
 impl PartialEq<Track> for Track {
 	fn eq(&self, other: &Track) -> bool {
 		self.path.eq(&other.path)
@@ -96,6 +117,37 @@ impl PartialEq<Track> for Track {
 impl PartialEq<PathBuf> for Track {
 	fn eq(&self, other: &PathBuf) -> bool {
 		self.path.eq(other)
+	}
+}
+
+impl Ord for Track {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		let titles = self
+			.tag
+			.title()
+			.zip(other.tag.title())
+			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
+		let artist = self
+			.tag
+			.artist()
+			.zip(other.tag.artist())
+			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
+		let albums = self
+			.tag
+			.album()
+			.zip(other.tag.album())
+			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
+
+		titles
+			.map_or(Ordering::Equal, |(s, o)| s.cmp(&o))
+			.then_with(|| artist.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
+			.then_with(|| albums.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
+	}
+}
+
+impl PartialOrd for Track {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
 	}
 }
 
@@ -112,13 +164,25 @@ pub struct Queue {
 impl Queue {
 	// todo check if current is in queue
 	pub fn state(state: &State) -> Self {
-		let (tracks, path) = if let Some(path) = state.queue.as_ref() {
-			(Track::directory(path), Some(path.clone()))
+		let (tracks, path) = if let Some(path) = state.queue.as_deref() {
+			let mut tracks = Track::directory(path);
+			tracks.sort();
+
+			(tracks, Some(path.to_owned()))
 		} else {
 			(vec![], None)
 		};
 
 		let current = state.track.clone();
+		let current = current.and_then(|current| {
+			let find = tracks.iter().find(|&track| track == &current);
+			if find.is_some() {
+				Some(current)
+			} else {
+				None
+			}
+		});
+
 		let shuffle = state.shuffle;
 
 		let last = VecDeque::new();
@@ -171,7 +235,7 @@ impl Queue {
 				.choose(&mut rng)
 				.ok_or(QueueError::NoTracks)?;
 
-				track.clone()
+			track.clone()
 		};
 
 		player.replace(track.as_str());
