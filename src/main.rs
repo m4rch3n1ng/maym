@@ -2,7 +2,7 @@ use self::{player::Player, state::State};
 use color_eyre::eyre::Context;
 use config::Config;
 use crossterm::{
-	event::{self, Event, KeyCode, KeyModifiers},
+	event::{self, Event, KeyCode, KeyModifiers, MouseEventKind},
 	execute, terminal,
 };
 use queue::Queue;
@@ -70,8 +70,8 @@ impl Application {
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout)? {
 				// todo check if press
-				if let Event::Key(key) = event::read()? {
-					match (key.code, key.modifiers) {
+				match event::read()? {
+					Event::Key(key) => match (key.code, key.modifiers) {
 						// global
 						(KeyCode::Char('q' | 'Q'), _) => return Ok(()),
 						// player
@@ -103,11 +103,18 @@ impl Application {
 						// ui
 						(KeyCode::Esc, KeyModifiers::NONE) => self.ui.esc(),
 						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
+						(KeyCode::Char('l'), KeyModifiers::NONE) => self.ui.lyrics(),
 						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
 						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
 						// ignore
 						_ => {}
-					}
+					},
+					Event::Mouse(mouse) => match mouse.kind {
+						MouseEventKind::ScrollDown => self.ui.down(),
+						MouseEventKind::ScrollUp => self.ui.up(),
+						_ => {}
+					},
+					_ => {}
 				}
 			}
 

@@ -54,11 +54,7 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 	}
 }
 
-fn seek_seek(
-	frame: &mut Frame,
-	(elapsed, duration): (Duration, Duration),
-	area: Rect,
-) {
+fn seek_seek(frame: &mut Frame, (elapsed, duration): (Duration, Duration), area: Rect) {
 	let fmt_elapsed = utils::fmt_duration(elapsed);
 	let fmt_duration = utils::fmt_duration(duration);
 	let fmt = format!("{} / {}", fmt_elapsed, fmt_duration);

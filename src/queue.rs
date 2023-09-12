@@ -97,6 +97,10 @@ impl Track {
 	pub fn album(&self) -> Option<String> {
 		self.tag.album().map(ToOwned::to_owned)
 	}
+
+	pub fn lyrics(&self) -> Option<String> {
+		self.tag.lyrics().next().map(ToString::to_string)
+	}
 }
 
 impl Debug for Track {
