@@ -100,6 +100,9 @@ impl Application {
 						(KeyCode::Char('s'), KeyModifiers::NONE) => {
 							self.queue.shuffle();
 						}
+						// ui
+						(KeyCode::Esc, KeyModifiers::NONE) => self.ui.esc(),
+						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
 						// ignore
 						_ => {}
 					}
