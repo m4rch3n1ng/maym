@@ -81,6 +81,22 @@ impl Track {
 	pub fn as_str(&self) -> &str {
 		self.path.as_str()
 	}
+
+	pub fn track(&self) -> Option<u32> {
+		self.tag.track()
+	}
+
+	pub fn title(&self) -> Option<String> {
+		self.tag.title().map(ToOwned::to_owned)
+	}
+
+	pub fn artist(&self) -> Option<String> {
+		self.tag.artist().map(ToOwned::to_owned)
+	}
+
+	pub fn album(&self) -> Option<String> {
+		self.tag.album().map(ToOwned::to_owned)
+	}
 }
 
 impl Debug for Track {

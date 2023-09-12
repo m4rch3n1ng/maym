@@ -2,9 +2,9 @@ use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	prelude::{Alignment, Constraint, Direction, Layout, Rect},
-	style::{Color, Style},
+	style::{Color, Style, Stylize},
 	symbols,
-	text::Text,
+	text::{Text, Line},
 	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
 	Frame,
 };
@@ -23,14 +23,18 @@ impl Ui {
 	}
 
 	fn draw_main(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let text = state
-			.track
-			.as_ref()
-			.map(ToString::to_string)
-			.unwrap_or_default();
-		let block = Block::default().title("main").borders(Borders::ALL);
-		let para = Paragraph::new(text).block(block);
-		frame.render_widget(para, area);
+		let bold = Style::default().bold();
+		let dim = Style::default().dim().italic();
+
+		if let Some(track) = state.track.as_ref() {
+			let title = track.title().map_or(Line::styled("nope", dim), |title| Line::styled(title, bold));
+			let artist = track.artist().map_or(Line::styled("nope", dim), Line::from);
+
+			let text = vec![ title, artist ];
+			let block = Block::default().title("main").borders(Borders::ALL);
+			let para = Paragraph::new(text).block(block);
+			frame.render_widget(para, area);
+		}
 	}
 
 	fn draw_seek(&self, frame: &mut Frame, area: Rect, state: &State) {
