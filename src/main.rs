@@ -103,6 +103,8 @@ impl Application {
 						// ui
 						(KeyCode::Esc, KeyModifiers::NONE) => self.ui.esc(),
 						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
+						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
+						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
 						// ignore
 						_ => {}
 					}
