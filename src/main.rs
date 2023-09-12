@@ -78,10 +78,14 @@ impl Application {
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
 						// queue
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
-							self.queue.next(&mut self.player).unwrap()
+							self.queue.next(&mut self.player).unwrap();
+							// todo more sophisticated solution
+							last = Instant::now();
 						}
 						(KeyCode::Left, KeyModifiers::SHIFT) => {
 							self.queue.last(&mut self.player);
+							// todo more sophisticated solution
+							last = Instant::now();
 						}
 						(KeyCode::Char('0'), KeyModifiers::NONE) => {
 							self.queue.restart(&mut self.player)
