@@ -13,7 +13,13 @@ use std::time::Duration;
 
 pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 	let bold = Style::default().bold();
-	let dim = Style::default().dim().italic();
+	let dimmed = Style::default().dim();
+	let dim = dimmed.italic();
+
+	let block = Block::default()
+		.title("main")
+		.borders(Borders::ALL)
+		.padding(Padding::new(4, 4, 2, 2));
 
 	if let Some(track) = state.track.as_ref() {
 		let title = track
@@ -26,18 +32,19 @@ pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 			.map_or(Line::styled("track has no artist", dim), Line::from);
 
 		let text = vec![title, artist];
-		let block = Block::default()
-			.title("main")
-			.borders(Borders::ALL)
-			.padding(Padding::new(4, 4, 2, 2));
 		let para = Paragraph::new(text).block(block);
+		frame.render_widget(para, area);
+	} else {
+		let line = Line::styled("no track playing", dim);
+		let para = Paragraph::new(line).block(block.border_style(dimmed));
 		frame.render_widget(para, area);
 	}
 }
 
 pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
+	let block = Block::default().title("seek").borders(Borders::ALL);
+
 	if let Some((elapsed, duration)) = state.elapsed_duration() {
-		let block = Block::default().title("seek").borders(Borders::ALL);
 		frame.render_widget(block, area);
 
 		let chunks = Layout::default()
@@ -52,8 +59,13 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 		let info = chunks[1];
 		self::seek_info(frame, state, info);
 	} else {
-		let block = Block::default().title("seek").borders(Borders::ALL);
-		frame.render_widget(block, area);
+		let dimmed = Style::default().dim();
+		let dim = dimmed.italic();
+
+		let padding = Padding::new(2, 0, 1, 0);
+		let line = Line::styled("no track playing", dim);
+		let para = Paragraph::new(line).block(block.padding(padding).border_style(dimmed));
+		frame.render_widget(para, area);
 	}
 }
 
