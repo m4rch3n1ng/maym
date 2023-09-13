@@ -1,10 +1,10 @@
-use crate::state::State;
+use crate::{queue::Queue, state::State};
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	prelude::Rect,
-	style::{Style, Stylize},
+	style::{Modifier, Style, Stylize},
 	text::Line,
-	widgets::{Block, Borders, Clear, Padding, Paragraph},
+	widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
 	Frame,
 };
 
@@ -223,4 +223,59 @@ impl Popup for Lyrics {
 	fn set_scroll_amt(&mut self, amt: u16) {
 		self.scroll_amt = amt;
 	}
+}
+
+#[derive(Debug, Default)]
+pub struct Tracks {
+	state: ListState,
+	len: usize,
+}
+
+impl Tracks {
+	pub fn init(&mut self, queue: &Queue) {
+		self.state.select(Some(0));
+		self.len = queue.tracks().len();
+	}
+
+	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
+		let items = tracks_list(queue);
+
+		let block = Block::default()
+			.borders(Borders::ALL)
+			.border_style(Style::default().dim())
+			.padding(Padding::new(2, 2, 1, 1))
+			.title("tracks");
+		let list = List::new(items)
+			.block(block)
+			.style(Style::default().dim())
+			.highlight_style(Style::default().remove_modifier(Modifier::DIM));
+
+		frame.render_stateful_widget(list, area, &mut self.state);
+	}
+
+	// todo wrap around ?
+	pub fn down(&mut self) {
+		let idx = self
+			.state
+			.selected()
+			.map(|i| usize::min(self.len.saturating_sub(1), i.saturating_add(1)));
+		self.state.select(idx);
+	}
+
+	// todo wrap around ?
+	pub fn up(&mut self) {
+		let idx = self.state.selected().map(|i| i.saturating_sub(1));
+		self.state.select(idx);
+	}
+}
+
+// todo associated fn perhaps
+fn tracks_list(queue: &Queue) -> Vec<ListItem> {
+	queue
+		.tracks()
+		.iter()
+		.map(|track| track.line(queue))
+		.map(Line::from)
+		.map(ListItem::new)
+		.collect()
 }

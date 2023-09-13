@@ -3,6 +3,10 @@ use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use ratatui::{
+	style::{Style, Stylize},
+	text::Line,
+};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
 use thiserror::Error;
@@ -86,6 +90,19 @@ impl Track {
 		self.tag.track()
 	}
 
+	pub fn line(&self, queue: &Queue) -> Line {
+		let fmt = self.to_string();
+		if let Some(track) = queue.track() {
+			if track == self {
+				Line::styled(fmt, Style::default().green().bold())
+			} else {
+				Line::from(fmt)
+			}
+		} else {
+			Line::from(fmt)
+		}
+	}
+
 	pub fn title(&self) -> Option<String> {
 		self.tag.title().map(ToOwned::to_owned)
 	}
@@ -117,9 +134,18 @@ impl Debug for Track {
 	}
 }
 
+// todo perhaps album
+// todo "no title", "no artist"
 impl Display for Track {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.path)
+		let track = self
+			.tag
+			.track()
+			.map_or(String::new(), |track| format!("{:#02} ", track));
+		let title = self.tag.title().unwrap_or("");
+		let artist = self.tag.artist().unwrap_or("");
+
+		write!(f, "{}{} ~ {}", track, title, artist)
 	}
 }
 

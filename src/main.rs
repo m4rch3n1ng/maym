@@ -65,7 +65,7 @@ impl Application {
 		let vol = self.config.vol();
 
 		loop {
-			terminal.draw(|f| self.ui.draw(f, &self.state))?;
+			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout)? {
@@ -104,6 +104,7 @@ impl Application {
 						(KeyCode::Esc, KeyModifiers::NONE) => self.ui.esc(),
 						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
 						(KeyCode::Char('y'), KeyModifiers::NONE) => self.ui.lyrics(),
+						(KeyCode::Char('t'), KeyModifiers::NONE) => self.ui.tracks(&self.queue),
 						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
 						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
 						// ignore
