@@ -88,13 +88,13 @@ impl Application {
 							last = Instant::now();
 						}
 						(KeyCode::Char('0'), KeyModifiers::NONE) => {
-							self.queue.restart(&mut self.player)
+							self.queue.restart(&mut self.player);
 						}
 						(KeyCode::Left, KeyModifiers::NONE) => {
-							self.queue.seek_d(&mut self.player, &self.state, seek)
+							self.queue.seek_d(&mut self.player, &self.state, seek);
 						}
 						(KeyCode::Right, KeyModifiers::NONE) => {
-							self.queue.seek_i(&mut self.player, &self.state, seek)
+							self.queue.seek_i(&mut self.player, &self.state, seek);
 						}
 						// ignore
 						_ => {}

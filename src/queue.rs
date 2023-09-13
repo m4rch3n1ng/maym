@@ -162,7 +162,6 @@ pub struct Queue {
 }
 
 impl Queue {
-	// todo check if current is in queue
 	pub fn state(state: &State) -> Self {
 		let (tracks, path) = if let Some(path) = state.queue.as_deref() {
 			let mut tracks = Track::directory(path);
@@ -176,11 +175,7 @@ impl Queue {
 		let current = state.track.clone();
 		let current = current.and_then(|current| {
 			let find = tracks.iter().find(|&track| track == &current);
-			if find.is_some() {
-				Some(current)
-			} else {
-				None
-			}
+			find.is_some().then_some(current)
 		});
 
 		let shuffle = state.shuffle;
@@ -209,7 +204,7 @@ impl Queue {
 	}
 
 	#[inline]
-	pub fn track(&self) -> Option<&Track> {
+	pub fn current(&self) -> Option<&Track> {
 		self.current.as_ref()
 	}
 
@@ -218,7 +213,7 @@ impl Queue {
 			player.replace(track.as_str());
 
 			if let Some(current) = self.current.replace(track) {
-				self.next.push(current)
+				self.next.push(current);
 			}
 		}
 	}
@@ -264,7 +259,7 @@ impl Queue {
 				let amt = Duration::from_secs(amt);
 				let start = elapsed.saturating_sub(amt);
 
-				player.seek(start)
+				player.seek(start);
 			}
 		}
 	}

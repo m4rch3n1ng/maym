@@ -34,7 +34,7 @@ impl Player {
 		self.0.set_property("volume", state.volume as i64).unwrap();
 		self.0.set_property("mute", state.muted).unwrap();
 
-		if let Some(track) = queue.track() {
+		if let Some(track) = queue.current() {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
 
@@ -112,7 +112,7 @@ impl Player {
 		let muted = self.muted();
 		self.0
 			.set_property("mute", !muted)
-			.expect("couldn't set mute")
+			.expect("couldn't set mute");
 	}
 
 	pub fn muted(&self) -> bool {
