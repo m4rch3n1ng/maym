@@ -59,6 +59,7 @@ impl Ui {
 		if let Some(Popups::Tags) = self.popup {
 			self.popup = None;
 		} else {
+			self.tags.init();
 			self.popup = Some(Popups::Tags);
 		}
 	}
@@ -67,6 +68,7 @@ impl Ui {
 		if let Some(Popups::Lyrics) = self.popup {
 			self.popup = None;
 		} else {
+			self.lyrics.init();
 			self.popup = Some(Popups::Lyrics);
 		}
 	}

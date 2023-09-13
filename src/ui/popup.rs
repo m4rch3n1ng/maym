@@ -9,9 +9,14 @@ use ratatui::{
 };
 
 pub trait Popup {
+	fn init(&mut self) {
+		self.set_pos(0);
+	}
+
 	fn block(&self) -> Block {
 		Block::default()
 			.borders(Borders::ALL)
+			.border_style(Style::default().dim())
 			.padding(Padding::new(2, 2, 1, 1))
 	}
 
@@ -72,7 +77,7 @@ pub struct Tags {
 }
 
 impl Tags {
-	pub fn draw(&mut self, frame: &mut Frame, area: Rect, state: &State) {
+	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
 		let block = self.block().title("tags");
 		let list = self.list(state);
 
@@ -157,7 +162,7 @@ pub struct Lyrics {
 }
 
 impl Lyrics {
-	pub fn draw(&mut self, frame: &mut Frame, area: Rect, state: &State) {
+	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
 		let block = self.block().title("lyrics");
 		let list = self.list(state);
 

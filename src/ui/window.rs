@@ -26,7 +26,10 @@ pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 			.map_or(Line::styled("track has no artist", dim), Line::from);
 
 		let text = vec![title, artist];
-		let block = Block::default().title("main").borders(Borders::ALL);
+		let block = Block::default()
+			.title("main")
+			.borders(Borders::ALL)
+			.padding(Padding::new(4, 4, 2, 2));
 		let para = Paragraph::new(text).block(block);
 		frame.render_widget(para, area);
 	}
