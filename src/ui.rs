@@ -64,9 +64,18 @@ impl Ui {
 		}
 	}
 
-	pub fn reset(&mut self) {
+	pub fn reset(&mut self, queue: &Queue) {
 		self.tags.reset();
 		self.lyrics.reset();
+
+		match self.popup {
+			Some(Popups::Tracks) => {}
+			_ => {
+				if let Some(idx) = queue.idx() {
+					self.tracks.select(idx);
+				}
+			}
+		}
 	}
 
 	pub fn tracks(&mut self) {

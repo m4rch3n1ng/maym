@@ -81,7 +81,7 @@ impl State {
 		self.queue = queue.path().cloned();
 
 		if self.track.as_ref() != queue.track() {
-			ui.reset();
+			ui.reset(queue);
 			self.track = queue.track().cloned();
 		}
 	}

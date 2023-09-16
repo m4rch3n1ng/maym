@@ -233,8 +233,10 @@ pub struct Tracks {
 
 impl Tracks {
 	pub fn new(queue: &Queue) -> Self {
-		let mut state = ListState::default();
-		state.select(Some(0));
+		let idx = queue.idx().unwrap_or(0);
+		let state = ListState::default()
+			.with_selected(Some(idx))
+			.with_offset(usize::MAX);
 
 		Tracks {
 			state,
@@ -261,6 +263,11 @@ impl Tracks {
 	pub fn reset(&mut self, queue: &Queue) {
 		self.state.select(Some(0));
 		self.len = queue.tracks().len();
+	}
+
+	pub fn select(&mut self, idx: usize) {
+		self.state.select(Some(idx));
+		*self.state.offset_mut() = usize::MAX;
 	}
 
 	// todo wrap around ?
