@@ -292,6 +292,16 @@ impl Queue {
 		Ok(track.clone())
 	}
 
+	pub fn select_idx(&mut self, idx: usize, player: &mut Player) -> Result<(), QueueError> {
+		let track = self.track_by_idx(idx)?;
+		self.replace(track, player);
+
+		self.next.clear();
+		self.last.clear();
+
+		Ok(())
+	}
+
 	fn last_track_sequential(&mut self) -> Option<Track> {
 		if self.tracks.is_empty() {
 			return None;

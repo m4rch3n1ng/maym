@@ -1,6 +1,7 @@
 use crate::{
 	player::Player,
 	queue::{Queue, Track},
+	ui::Ui,
 };
 use camino::Utf8PathBuf;
 use once_cell::sync::Lazy;
@@ -69,7 +70,7 @@ impl State {
 		!self.paused && self.track.is_some() && self.duration.is_none() && self.elapsed.is_none()
 	}
 
-	pub fn tick(&mut self, player: &Player, queue: &Queue) {
+	pub fn tick(&mut self, player: &Player, queue: &Queue, ui: &mut Ui) {
 		self.volume = player.volume();
 		self.paused = player.paused();
 		self.muted = player.muted();
@@ -80,6 +81,7 @@ impl State {
 		self.queue = queue.path().cloned();
 
 		if self.track.as_ref() != queue.track() {
+			ui.reset();
 			self.track = queue.track().cloned();
 		}
 	}

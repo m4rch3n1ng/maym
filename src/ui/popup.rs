@@ -1,4 +1,4 @@
-use crate::{queue::Queue, state::State};
+use crate::{player::Player, queue::Queue, state::State};
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	prelude::Rect,
@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 pub trait Popup {
-	fn init(&mut self) {
+	fn reset(&mut self) {
 		self.set_pos(0);
 	}
 
@@ -225,16 +225,21 @@ impl Popup for Lyrics {
 	}
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Tracks {
 	state: ListState,
 	len: usize,
 }
 
 impl Tracks {
-	pub fn init(&mut self, queue: &Queue) {
-		self.state.select(Some(0));
-		self.len = queue.tracks().len();
+	pub fn new(queue: &Queue) -> Self {
+		let mut state = ListState::default();
+		state.select(Some(0));
+
+		Tracks {
+			state,
+			len: queue.tracks().len(),
+		}
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
@@ -253,6 +258,11 @@ impl Tracks {
 		frame.render_stateful_widget(list, area, &mut self.state);
 	}
 
+	pub fn reset(&mut self, queue: &Queue) {
+		self.state.select(Some(0));
+		self.len = queue.tracks().len();
+	}
+
 	// todo wrap around ?
 	pub fn down(&mut self) {
 		let idx = self
@@ -266,6 +276,11 @@ impl Tracks {
 	pub fn up(&mut self) {
 		let idx = self.state.selected().map(|i| i.saturating_sub(1));
 		self.state.select(idx);
+	}
+
+	pub fn enter(&self, player: &mut Player, queue: &mut Queue) {
+		let idx = self.state.selected().unwrap();
+		queue.select_idx(idx, player).unwrap();
 	}
 }
 

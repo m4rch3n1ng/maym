@@ -41,7 +41,7 @@ impl Application {
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
 
-		let ui = Ui::default();
+		let ui = Ui::new(&queue);
 
 		let tick = Duration::from_millis(100);
 
@@ -104,9 +104,14 @@ impl Application {
 						(KeyCode::Esc, KeyModifiers::NONE) => self.ui.esc(),
 						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
 						(KeyCode::Char('y'), KeyModifiers::NONE) => self.ui.lyrics(),
-						(KeyCode::Char('t'), KeyModifiers::NONE) => self.ui.tracks(&self.queue),
+						(KeyCode::Char('t'), KeyModifiers::NONE) => self.ui.tracks(),
 						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
 						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
+						// ctx
+						(KeyCode::Enter, KeyModifiers::NONE) => {
+							self.ui.enter(&mut self.player, &mut self.queue);
+							skip_done = true;
+						}
 						// ignore
 						_ => {}
 					},
@@ -120,7 +125,7 @@ impl Application {
 			}
 
 			if last.elapsed() >= self.tick {
-				self.state.tick(&self.player, &self.queue);
+				self.state.tick(&self.player, &self.queue, &mut self.ui);
 				if !skip_done {
 					self.queue.done(&mut self.player, &self.state)?;
 				} else {

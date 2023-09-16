@@ -1,5 +1,5 @@
 use self::popup::{Lyrics, Popup, Tags, Tracks};
-use crate::{queue::Queue, state::State};
+use crate::{player::Player, queue::Queue, state::State};
 use ratatui::{prelude::Rect, Frame};
 
 mod popup;
@@ -13,7 +13,7 @@ pub enum Popups {
 	Lyrics,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Ui {
 	tags: Tags,
 	lyrics: Lyrics,
@@ -22,6 +22,15 @@ pub struct Ui {
 }
 
 impl Ui {
+	pub fn new(queue: &Queue) -> Self {
+		Ui {
+			tags: Tags::default(),
+			lyrics: Lyrics::default(),
+			tracks: Tracks::new(queue),
+			popup: None,
+		}
+	}
+
 	pub fn draw(&mut self, frame: &mut Frame, state: &State, queue: &Queue) {
 		let size = frame.size();
 		let (window, seek) = window::layout(size);
@@ -55,11 +64,15 @@ impl Ui {
 		}
 	}
 
-	pub fn tracks(&mut self, queue: &Queue) {
+	pub fn reset(&mut self) {
+		self.tags.reset();
+		self.lyrics.reset();
+	}
+
+	pub fn tracks(&mut self) {
 		if let Some(Popups::Tracks) = self.popup {
 			self.popup = None;
 		} else {
-			self.tracks.init(queue);
 			self.popup = Some(Popups::Tracks);
 		}
 	}
@@ -68,7 +81,6 @@ impl Ui {
 		if let Some(Popups::Tags) = self.popup {
 			self.popup = None;
 		} else {
-			self.tags.init();
 			self.popup = Some(Popups::Tags);
 		}
 	}
@@ -77,7 +89,6 @@ impl Ui {
 		if let Some(Popups::Lyrics) = self.popup {
 			self.popup = None;
 		} else {
-			self.lyrics.init();
 			self.popup = Some(Popups::Lyrics);
 		}
 	}
@@ -97,6 +108,12 @@ impl Ui {
 			Some(Popups::Tracks) => self.tracks.down(),
 			Some(Popups::Lyrics) => self.lyrics.down(),
 			None => {}
+		}
+	}
+
+	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) {
+		if let Some(Popups::Tracks) = self.popup {
+			self.tracks.enter(player, queue);
 		}
 	}
 
