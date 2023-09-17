@@ -41,7 +41,7 @@ impl Application {
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
 
-		let ui = Ui::new(&queue);
+		let ui = Ui::new(&queue, &config);
 
 		let tick = Duration::from_millis(100);
 
@@ -91,12 +91,6 @@ impl Application {
 						(KeyCode::Char('0'), KeyModifiers::NONE) => {
 							self.queue.restart(&mut self.player);
 						}
-						(KeyCode::Left, KeyModifiers::NONE) => {
-							self.queue.seek_d(&mut self.player, &self.state, seek);
-						}
-						(KeyCode::Right, KeyModifiers::NONE) => {
-							self.queue.seek_i(&mut self.player, &self.state, seek);
-						}
 						(KeyCode::Char('s'), KeyModifiers::NONE) => {
 							self.queue.shuffle();
 						}
@@ -105,12 +99,27 @@ impl Application {
 						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
 						(KeyCode::Char('y'), KeyModifiers::NONE) => self.ui.lyrics(),
 						(KeyCode::Char('t'), KeyModifiers::NONE) => self.ui.tracks(),
+						(KeyCode::Char('l'), KeyModifiers::NONE) => self.ui.lists(),
 						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
 						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
 						// ctx
 						(KeyCode::Enter, KeyModifiers::NONE) => {
 							self.ui.enter(&mut self.player, &mut self.queue);
 							skip_done = true;
+						}
+						(KeyCode::Right, KeyModifiers::NONE) => {
+							if self.ui.is_popup() {
+								self.ui.right();
+							} else {
+								self.queue.seek_i(&mut self.player, &self.state, seek);
+							}
+						}
+						(KeyCode::Left, KeyModifiers::NONE) => {
+							if self.ui.is_popup() {
+								self.ui.left();
+							} else {
+								self.queue.seek_d(&mut self.player, &self.state, seek);
+							}
 						}
 						// ignore
 						_ => {}

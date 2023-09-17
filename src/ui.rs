@@ -1,5 +1,5 @@
-use self::popup::{Lyrics, Popup, Tags, Tracks};
-use crate::{player::Player, queue::Queue, state::State};
+use self::popup::{Lists, Lyrics, Popup, Tags, Tracks};
+use crate::{config::Config, player::Player, queue::Queue, state::State};
 use ratatui::{prelude::Rect, Frame};
 
 mod popup;
@@ -9,6 +9,7 @@ mod window;
 #[derive(Debug, Clone, Copy)]
 pub enum Popups {
 	Tracks,
+	Lists,
 	Tags,
 	Lyrics,
 }
@@ -18,15 +19,17 @@ pub struct Ui {
 	tags: Tags,
 	lyrics: Lyrics,
 	tracks: Tracks,
+	lists: Lists,
 	popup: Option<Popups>,
 }
 
 impl Ui {
-	pub fn new(queue: &Queue) -> Self {
+	pub fn new(queue: &Queue, config: &Config) -> Self {
 		Ui {
 			tags: Tags::default(),
 			lyrics: Lyrics::default(),
 			tracks: Tracks::new(queue),
+			lists: Lists::new(config),
 			popup: None,
 		}
 	}
@@ -60,8 +63,13 @@ impl Ui {
 				self.lyrics.update_scroll(area, state);
 				self.lyrics.draw(frame, area, state);
 			}
+			Some(Popups::Lists) => self.lists.draw(frame, area),
 			None => {}
 		}
+	}
+
+	pub fn is_popup(&self) -> bool {
+		self.popup.is_some()
 	}
 
 	pub fn reset(&mut self, queue: &Queue) {
@@ -75,6 +83,14 @@ impl Ui {
 					self.tracks.select(idx);
 				}
 			}
+		}
+	}
+
+	pub fn lists(&mut self) {
+		if let Some(Popups::Lists) = self.popup {
+			self.popup = None;
+		} else {
+			self.popup = Some(Popups::Lists);
 		}
 	}
 
@@ -107,6 +123,7 @@ impl Ui {
 			Some(Popups::Tags) => self.tags.up(),
 			Some(Popups::Tracks) => self.tracks.up(),
 			Some(Popups::Lyrics) => self.lyrics.up(),
+			Some(Popups::Lists) => self.lists.up(),
 			None => {}
 		}
 	}
@@ -116,7 +133,20 @@ impl Ui {
 			Some(Popups::Tags) => self.tags.down(),
 			Some(Popups::Tracks) => self.tracks.down(),
 			Some(Popups::Lyrics) => self.lyrics.down(),
+			Some(Popups::Lists) => self.lists.down(),
 			None => {}
+		}
+	}
+
+	pub fn right(&mut self) {
+		if let Some(Popups::Lists) = self.popup {
+			self.lists.right();
+		}
+	}
+
+	pub fn left(&mut self) {
+		if let Some(Popups::Lists) = self.popup {
+			self.lists.left();
 		}
 	}
 

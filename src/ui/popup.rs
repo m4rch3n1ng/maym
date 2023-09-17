@@ -1,23 +1,22 @@
-use crate::{player::Player, queue::Queue, state::State};
+use super::utils;
+use crate::{
+	config::{Child, Config, List},
+	player::Player,
+	queue::Queue,
+	state::State,
+};
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	prelude::Rect,
 	style::{Modifier, Style, Stylize},
 	text::Line,
-	widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
+	widgets::{Clear, List as ListWidget, ListItem, ListState, Paragraph},
 	Frame,
 };
 
 pub trait Popup {
 	fn reset(&mut self) {
 		self.set_pos(0);
-	}
-
-	fn block(&self) -> Block {
-		Block::default()
-			.borders(Borders::ALL)
-			.border_style(Style::default().dim())
-			.padding(Padding::new(2, 2, 1, 1))
 	}
 
 	fn pos(&self) -> u16;
@@ -36,7 +35,7 @@ pub trait Popup {
 		let list = self.list(state);
 
 		let lines = list.len().approx_as::<u16>().unwrap_or_saturate();
-		let height = self.block().inner(area).height;
+		let height = utils::popup::block().inner(area).height;
 
 		let n_scroll_max = lines.saturating_sub(height);
 		if n_scroll_max != self.scroll_amt() {
@@ -78,7 +77,7 @@ pub struct Tags {
 
 impl Tags {
 	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let block = self.block().title("tags");
+		let block = utils::popup::block().title("tags");
 		let list = self.list(state);
 
 		let par = if self.do_scroll {
@@ -163,7 +162,7 @@ pub struct Lyrics {
 
 impl Lyrics {
 	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let block = self.block().title("lyrics");
+		let block = utils::popup::block().title("lyrics");
 		let list = self.list(state);
 
 		// wrap depends on https://github.com/ratatui-org/ratatui/issues/136
@@ -247,12 +246,8 @@ impl Tracks {
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
 		let items = tracks_list(queue);
 
-		let block = Block::default()
-			.borders(Borders::ALL)
-			.border_style(Style::default().dim())
-			.padding(Padding::new(2, 2, 1, 1))
-			.title("tracks");
-		let list = List::new(items)
+		let block = utils::popup::block().title("tracks");
+		let list = ListWidget::new(items)
 			.block(block)
 			.style(Style::default().dim())
 			.highlight_style(Style::default().remove_modifier(Modifier::DIM));
@@ -298,6 +293,77 @@ fn tracks_list(queue: &Queue) -> Vec<ListItem> {
 		.iter()
 		.map(|track| track.line(queue))
 		.map(Line::from)
+		.map(ListItem::new)
+		.collect()
+}
+
+#[derive(Debug)]
+pub struct Lists {
+	state: ListState,
+	list: List,
+}
+
+impl Lists {
+	pub fn new(config: &Config) -> Self {
+		let list = config.lists()[0].clone();
+		let state = ListState::default().with_selected(Some(0));
+
+		Lists { state, list }
+	}
+
+	pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
+		let children = self.list.children();
+		let items = lists_list(&children);
+
+		let block = utils::popup::block().title("lists");
+		let list = ListWidget::new(items)
+			.block(block)
+			.style(Style::default().dim())
+			.highlight_style(Style::default().remove_modifier(Modifier::DIM));
+
+		frame.render_stateful_widget(list, area, &mut self.state);
+	}
+
+	// todo wrap around
+	pub fn down(&mut self) {
+		let len = self.list.children().len();
+		let next = self.state.selected().map(|i| usize::min(len, i + 1));
+		self.state.select(next);
+	}
+
+	// todo wrap around
+	pub fn up(&mut self) {
+		let prev = self.state.selected().map(|i| i.saturating_sub(1));
+		self.state.select(prev);
+	}
+
+	pub fn right(&mut self) {
+		let children = self.list.children();
+		let idx = self.state.selected().unwrap();
+		let child = &children[idx];
+		if let Some(list) = child.list() {
+			self.list = list.clone();
+			self.state.select(Some(0));
+		}
+	}
+
+	pub fn left(&mut self) {
+		let curr = &self.list;
+
+		if let Some(list) = self.list.parent() {
+			let idx = list.children().iter().position(|child| child == curr);
+			let idx = idx.unwrap_or(0);
+
+			self.list = list;
+			self.state.select(Some(idx));
+		}
+	}
+}
+
+fn lists_list(children: &[Child]) -> Vec<ListItem> {
+	children
+		.iter()
+		.map(|child| child.line())
 		.map(ListItem::new)
 		.collect()
 }
