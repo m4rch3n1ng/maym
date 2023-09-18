@@ -1,7 +1,16 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use thiserror::Error;
 
 const PATH: &str = "/home/may/.config/m4rch/player/config.json";
+
+#[derive(Debug, Error)]
+pub enum ConfigError {
+	#[error("io errors")]
+	IoError(#[from] std::io::Error),
+	#[error("serde error")]
+	SerdeJsonError(#[from] serde_json::Error),
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -12,9 +21,10 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn init() -> Self {
-		let file = fs::read_to_string(PATH).unwrap();
-		serde_json::from_str(&file).unwrap()
+	pub fn init() -> Result<Self, ConfigError> {
+		let file = fs::read_to_string(PATH)?;
+		let config = serde_json::from_str(&file)?;
+		Ok(config)
 	}
 
 	#[inline]

@@ -1,5 +1,6 @@
 use crate::queue::Queue;
 use crate::state::State;
+use conv::{ConvUtil, UnwrapOrSaturate};
 use mpv::{MpvHandler, MpvHandlerBuilder};
 use std::fmt::Debug;
 use std::time::Duration;
@@ -12,35 +13,29 @@ impl Debug for Player {
 	}
 }
 
-impl Default for Player {
-	fn default() -> Self {
-		Player::new()
-	}
-}
-
 impl Player {
-	pub fn new() -> Self {
-		let mut mpv = MpvHandlerBuilder::new()
-			.expect("couldn't init mpv handler builder")
-			.build()
-			.expect("couldn't build mpv handler builder");
+	pub fn new() -> Result<Self, mpv::Error> {
+		let mut mpv = MpvHandlerBuilder::new()?.build()?;
 
-		mpv.set_option("vo", "null").expect("couldn't set vo=null");
+		mpv.set_option("vo", "null")?;
 
-		Player(mpv)
+		let player = Player(mpv);
+		Ok(player)
 	}
 
-	pub fn state(&mut self, queue: &Queue, state: &State) {
-		self.0.set_property("volume", state.volume as i64).unwrap();
-		self.0.set_property("mute", state.muted).unwrap();
+	pub fn state(&mut self, queue: &Queue, state: &State) -> Result<(), mpv::Error> {
+		self.0.set_property("volume", state.volume as i64)?;
+		self.0.set_property("mute", state.muted)?;
 
 		if let Some(track) = queue.current() {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
 
 			let track = track.as_str();
-			self.restart(track, start);
+			self.revive(track, start)?;
 		}
+
+		Ok(())
 	}
 
 	pub fn queue(&mut self, track: &str) {
@@ -54,11 +49,9 @@ impl Player {
 		self.0.set_property("time-pos", start).unwrap();
 	}
 
-	fn restart(&mut self, track: &str, start: Duration) {
+	fn revive(&mut self, track: &str, start: Duration) -> Result<(), mpv::Error> {
 		let start = format!("start={},pause=yes", start.as_secs());
-		self.0
-			.command(&["loadfile", track, "replace", &start])
-			.expect("couldn't reload file");
+		self.0.command(&["loadfile", track, "replace", &start])
 	}
 
 	pub fn replace(&mut self, track: &str) {
@@ -74,13 +67,12 @@ impl Player {
 			.expect("couldn't toggle player");
 	}
 
-	// todo do smth with negative values
 	pub fn volume(&self) -> u64 {
 		let vol = self
 			.0
 			.get_property::<i64>("volume")
 			.expect("couldn't get volume");
-		vol as u64
+		vol.approx_as::<u64>().unwrap_or_saturate()
 	}
 
 	pub fn paused(&self) -> bool {

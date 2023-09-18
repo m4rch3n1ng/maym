@@ -4,8 +4,20 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, time::Duration};
+use thiserror::Error;
 
 const PATH: &str = "/home/may/.config/m4rch/player/status.json";
+
+#[derive(Debug, Error)]
+#[allow(clippy::enum_variant_names)]
+pub enum StateError {
+	#[error("io errors")]
+	IoError(#[from] std::io::Error),
+	#[error("serde error")]
+	SerdeJsonError(#[from] serde_json::Error),
+	#[error("from utf8 error")]
+	FromUtf8Error(#[from] std::string::FromUtf8Error),
+}
 
 #[serde_with::serde_as]
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,9 +37,10 @@ pub struct State {
 }
 
 impl State {
-	pub fn init() -> Self {
-		let file = fs::read_to_string(PATH).unwrap();
-		serde_json::from_str(&file).unwrap()
+	pub fn init() -> Result<Self, StateError> {
+		let file = fs::read_to_string(PATH)?;
+		let state = serde_json::from_str(&file)?;
+		Ok(state)
 	}
 
 	pub fn elapsed_duration(&self) -> Option<(Duration, Duration)> {
@@ -78,16 +91,18 @@ impl State {
 		}
 	}
 
-	pub fn write(&self) {
+	pub fn write(&self) -> Result<(), StateError> {
 		let mut buf = Vec::new();
 		let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
 		let mut json_serializer = serde_json::Serializer::with_formatter(&mut buf, formatter);
 
-		self.serialize(&mut json_serializer).unwrap();
-		let mut serialized = String::from_utf8(buf).unwrap();
+		self.serialize(&mut json_serializer)?;
+		let mut serialized = String::from_utf8(buf)?;
 		serialized.push('\n');
 
-		fs::write(PATH, serialized).unwrap();
+		fs::write(PATH, serialized)?;
+
+		Ok(())
 	}
 }
 

@@ -1,5 +1,5 @@
 use self::{player::Player, state::State};
-use config::Config;
+use config::{Config, ConfigError};
 use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
@@ -9,10 +9,12 @@ use ratatui::{
 	prelude::{Backend, CrosstermBackend},
 	Terminal,
 };
+use state::StateError;
 use std::{
 	io,
 	time::{Duration, Instant},
 };
+use thiserror::Error;
 use ui::Ui;
 
 mod config;
@@ -20,6 +22,17 @@ mod player;
 mod queue;
 mod state;
 mod ui;
+
+#[derive(Debug, Error)]
+#[allow(clippy::enum_variant_names)]
+enum MayError {
+	#[error("mpv error")]
+	MpvError(#[from] mpv::Error),
+	#[error("state error")]
+	StateError(#[from] StateError),
+	#[error("config error")]
+	ConfigError(#[from] ConfigError),
+}
 
 #[derive(Debug)]
 struct Application {
@@ -32,26 +45,27 @@ struct Application {
 }
 
 impl Application {
-	pub fn new() -> Self {
-		let config = Config::init();
-		let state = State::init();
+	pub fn new() -> Result<Self, MayError> {
+		let config = Config::init()?;
+		let state = State::init()?;
 		let queue = Queue::state(&state);
 
-		let mut player = Player::new();
-		player.state(&queue, &state);
+		let mut player = Player::new()?;
+		player.state(&queue, &state)?;
 
 		let ui = Ui::default();
 
 		let tick = Duration::from_millis(100);
 
-		Application {
+		let app = Application {
 			player,
 			config,
 			state,
 			queue,
 			ui,
 			tick,
-		}
+		};
+		Ok(app)
 	}
 
 	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) {
@@ -78,6 +92,7 @@ impl Application {
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
 						// queue
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
+							// todo that error can probably be ignored
 							self.queue.next(&mut self.player).unwrap();
 							// todo more sophisticated solution
 							last = Instant::now();
@@ -110,7 +125,7 @@ impl Application {
 
 				// todo amt
 				if ticks >= 10 {
-					self.state.write();
+					self.state.write().unwrap();
 					ticks = 0;
 				} else {
 					ticks += 1;
@@ -147,10 +162,11 @@ impl Application {
 	}
 }
 
-fn main() {
-	color_eyre::install().unwrap();
+fn main() -> color_eyre::Result<()> {
+	color_eyre::install()?;
 
-	let mut app = Application::new();
-
+	let mut app = Application::new()?;
 	app.start();
+
+	Ok(())
 }
