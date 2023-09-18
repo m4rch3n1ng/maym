@@ -86,6 +86,10 @@ impl Ui {
 		}
 	}
 
+	pub fn reset_q(&mut self, queue: &Queue) {
+		self.tracks.reset(queue);
+	}
+
 	pub fn lists(&mut self) {
 		if let Some(Popups::Lists) = self.popup {
 			self.popup = None;
@@ -151,8 +155,10 @@ impl Ui {
 	}
 
 	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) {
-		if let Some(Popups::Tracks) = self.popup {
-			self.tracks.enter(player, queue);
+		match self.popup {
+			Some(Popups::Tracks) => self.tracks.enter(player, queue),
+			Some(Popups::Lists) => self.lists.enter(player, queue),
+			_ => {}
 		}
 	}
 

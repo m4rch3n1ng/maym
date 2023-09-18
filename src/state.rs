@@ -78,7 +78,12 @@ impl State {
 		self.elapsed = player.elapsed();
 
 		self.shuffle = queue.is_shuffle();
-		self.queue = queue.path().cloned();
+
+		let q = queue.path();
+		if self.queue.as_ref() != q {
+			ui.reset_q(queue);
+			self.queue = q.cloned();
+		}
 
 		if self.track.as_ref() != queue.track() {
 			ui.reset(queue);

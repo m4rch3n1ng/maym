@@ -21,7 +21,7 @@ pub enum ConfigError {
 	ListDoesntExist(Utf8PathBuf),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Child {
 	List(List),
 	Mp3(Utf8PathBuf),
@@ -88,7 +88,7 @@ impl PartialOrd for Child {
 
 #[derive(Debug, Clone)]
 pub struct List {
-	path: Utf8PathBuf,
+	pub path: Utf8PathBuf,
 	parent: Option<Rc<List>>,
 }
 

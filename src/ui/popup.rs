@@ -10,7 +10,7 @@ use ratatui::{
 	prelude::Rect,
 	style::{Modifier, Style, Stylize},
 	text::Line,
-	widgets::{Clear, List as ListWidget, ListItem, ListState, Paragraph},
+	widgets::{Block, Clear, List as ListWidget, ListItem, ListState, Paragraph},
 	Frame,
 };
 
@@ -247,12 +247,26 @@ impl Tracks {
 		let items = tracks_list(queue);
 
 		let block = utils::popup::block().title("tracks");
+		let inner = block.inner(area);
+		let (title_area, list_area) = utils::popup::double_layout(inner);
+
+		frame.render_widget(Clear, area);
+		frame.render_widget(block, area);
+
+		let path = queue.path();
+		let line = path.map_or(
+			Line::styled("nothing playing", Style::default().bold().dim().italic()),
+			|path| Line::styled(format!(">> {:?}", path), Style::default().bold()),
+		);
+		let title = Paragraph::new(line).block(Block::default());
+		frame.render_widget(title, title_area);
+
 		let list = ListWidget::new(items)
-			.block(block)
+			.block(Block::default())
 			.style(Style::default().dim())
 			.highlight_style(Style::default().remove_modifier(Modifier::DIM));
 
-		frame.render_stateful_widget(list, area, &mut self.state);
+		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
 	pub fn reset(&mut self, queue: &Queue) {
@@ -337,10 +351,14 @@ impl Lists {
 		self.state.select(prev);
 	}
 
-	pub fn right(&mut self) {
+	fn curr(&self) -> Child {
 		let children = self.list.children();
 		let idx = self.state.selected().unwrap();
-		let child = &children[idx];
+		children[idx].clone()
+	}
+
+	pub fn right(&mut self) {
+		let child = self.curr();
 		if let Some(list) = child.list() {
 			self.list = list.clone();
 			self.state.select(Some(0));
@@ -356,6 +374,20 @@ impl Lists {
 
 			self.list = list;
 			self.state.select(Some(idx));
+		}
+	}
+
+	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) {
+		let child = self.curr();
+		match child {
+			Child::List(list) => {
+				self.list = list.clone();
+				self.state.select(Some(0));
+			}
+			Child::Mp3(path) => {
+				queue.queue(&self.list.path).unwrap();
+				queue.select_path(&path, player);
+			}
 		}
 	}
 }

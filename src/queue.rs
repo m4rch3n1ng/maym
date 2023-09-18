@@ -172,6 +172,18 @@ impl PartialEq<Track> for Track {
 	}
 }
 
+impl PartialEq<Utf8PathBuf> for Track {
+	fn eq(&self, other: &Utf8PathBuf) -> bool {
+		self.path.eq(other)
+	}
+}
+
+impl PartialEq<&Utf8Path> for Track {
+	fn eq(&self, other: &&Utf8Path) -> bool {
+		self.path.eq(other)
+	}
+}
+
 impl Ord for Track {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		let tracks = self.tag.track().zip(other.tag.track());
@@ -290,6 +302,29 @@ impl Queue {
 	fn track_by_idx(&mut self, idx: usize) -> Result<Track, QueueError> {
 		let track = self.tracks.get(idx).ok_or(QueueError::OutOfBounds(idx))?;
 		Ok(track.clone())
+	}
+
+	pub fn queue(&mut self, path: &Utf8Path) -> Result<(), QueueError> {
+		let mut tracks = Track::directory(path)?;
+		tracks.sort();
+
+		self.path = Some(path.to_owned());
+		self.tracks = tracks;
+		self.current = None;
+		self.last.clear();
+		self.next.clear();
+
+		Ok(())
+	}
+
+	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) {
+		let track = self.tracks.iter().find(|&iter| iter == &path).unwrap();
+		let track = track.clone();
+
+		self.next.clear();
+		self.last.clear();
+
+		self.replace(track, player);
 	}
 
 	pub fn select_idx(&mut self, idx: usize, player: &mut Player) -> Result<(), QueueError> {

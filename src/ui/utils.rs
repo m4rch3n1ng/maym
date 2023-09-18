@@ -9,6 +9,7 @@ pub fn fmt_duration(duration: Duration) -> String {
 
 pub mod popup {
 	use ratatui::{
+		prelude::{Constraint, Direction, Layout, Rect},
 		style::{Style, Stylize},
 		widgets::{Block, Borders, Padding},
 	};
@@ -18,5 +19,16 @@ pub mod popup {
 			.borders(Borders::ALL)
 			.border_style(Style::default().dim())
 			.padding(Padding::new(2, 2, 1, 1))
+	}
+
+	pub fn double_layout(area: Rect) -> (Rect, Rect) {
+		let layout = Layout::default()
+			.direction(Direction::Vertical)
+			.constraints([Constraint::Max(1), Constraint::Min(0)])
+			.split(area);
+
+		let title = layout[0];
+		let list = layout[1];
+		(title, list)
 	}
 }
