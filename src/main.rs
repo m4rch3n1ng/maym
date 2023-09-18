@@ -4,7 +4,7 @@ use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
 };
-use queue::Queue;
+use queue::{Queue, QueueError};
 use ratatui::{
 	prelude::{Backend, CrosstermBackend},
 	Terminal,
@@ -25,13 +25,15 @@ mod ui;
 
 #[derive(Debug, Error)]
 #[allow(clippy::enum_variant_names)]
-enum MayError {
+pub enum MayError {
 	#[error("mpv error")]
 	MpvError(#[from] mpv::Error),
 	#[error("state error")]
 	StateError(#[from] StateError),
 	#[error("config error")]
 	ConfigError(#[from] ConfigError),
+	#[error("queue error")]
+	QueueError(#[from] QueueError)
 }
 
 #[derive(Debug)]

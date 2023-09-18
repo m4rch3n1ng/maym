@@ -1,6 +1,6 @@
 use crate::{player::Player, state::State};
 use id3::{Tag, TagLike};
-use rand::seq::IteratorRandom;
+use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
 	cmp::Ordering,
@@ -159,6 +159,7 @@ pub struct Queue {
 	next: Vec<Track>,
 	current: Option<Track>,
 	shuffle: bool,
+	rng: ThreadRng,
 }
 
 impl Queue {
@@ -183,6 +184,8 @@ impl Queue {
 		let last = VecDeque::new();
 		let next = vec![];
 
+		let rng = rand::thread_rng();
+
 		Queue {
 			path,
 			tracks,
@@ -190,6 +193,7 @@ impl Queue {
 			next,
 			current,
 			shuffle,
+			rng,
 		}
 	}
 
@@ -223,12 +227,10 @@ impl Queue {
 			Ok(track)
 		} else {
 			// todo filter
-			// todo global rng ?
-			let mut rng = rand::thread_rng();
 			let track = self
 				.tracks
 				.iter()
-				.choose(&mut rng)
+				.choose(&mut self.rng)
 				.ok_or(QueueError::NoTracks)?;
 
 			Ok(track.clone())
