@@ -33,7 +33,9 @@ pub enum MayError {
 	#[error("config error")]
 	ConfigError(#[from] ConfigError),
 	#[error("queue error")]
-	QueueError(#[from] QueueError)
+	QueueError(#[from] QueueError),
+	#[error("io error")]
+	IoError(#[from] std::io::Error),
 }
 
 #[derive(Debug)]
@@ -70,7 +72,7 @@ impl Application {
 		Ok(app)
 	}
 
-	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) {
+	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), MayError> {
 		let mut last = Instant::now();
 		let mut ticks = 0;
 
@@ -78,15 +80,15 @@ impl Application {
 		let vol = self.config.vol();
 
 		loop {
-			terminal.draw(|f| self.ui.draw(f, &self.state)).unwrap();
+			terminal.draw(|f| self.ui.draw(f, &self.state))?;
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
-			if event::poll(timeout).unwrap() {
+			if event::poll(timeout)? {
 				// todo check if press
-				if let Event::Key(key) = event::read().unwrap() {
+				if let Event::Key(key) = event::read()? {
 					match (key.code, key.modifiers) {
 						// global
-						(KeyCode::Char('q' | 'Q'), _) => return,
+						(KeyCode::Char('q' | 'Q'), _) => return Ok(()),
 						// player
 						(KeyCode::Char(' ' | 'k'), KeyModifiers::NONE) => self.player.toggle(),
 						(KeyCode::Char('m'), KeyModifiers::NONE) => self.player.mute(),
@@ -136,31 +138,31 @@ impl Application {
 		}
 	}
 
-	pub fn start(&mut self) {
-		terminal::enable_raw_mode().unwrap();
-
+	pub fn start(&mut self) -> Result<(), MayError> {
 		let mut stdout = io::stdout();
+
+		terminal::enable_raw_mode()?;
 		execute!(
 			stdout,
 			terminal::EnterAlternateScreen,
 			event::EnableMouseCapture
-		)
-		.unwrap();
+		)?;
 
 		let backend = CrosstermBackend::new(&stdout);
-		let mut terminal = Terminal::new(backend).unwrap();
+		let mut terminal = Terminal::new(backend)?;
 
-		self.run(&mut terminal);
+		let result = self.run(&mut terminal);
 
-		terminal::disable_raw_mode().unwrap();
-		execute!(
+		let _ = terminal::disable_raw_mode();
+		let _ = execute!(
 			terminal.backend_mut(),
 			terminal::LeaveAlternateScreen,
 			event::DisableMouseCapture
-		)
-		.unwrap();
+		);
 
-		terminal.show_cursor().unwrap();
+		let _ = terminal.show_cursor();
+
+		result
 	}
 }
 
@@ -168,7 +170,7 @@ fn main() -> color_eyre::Result<()> {
 	color_eyre::install()?;
 
 	let mut app = Application::new()?;
-	app.start();
+	app.start()?;
 
 	Ok(())
 }
