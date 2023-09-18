@@ -218,11 +218,12 @@ impl Queue {
 		}
 	}
 
-	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
-		let track = if let Some(track) = self.next.pop() {
-			track
+	fn nxt(&mut self) -> Result<Track, QueueError> {
+		if let Some(track) = self.next.pop() {
+			Ok(track)
 		} else {
 			// todo filter
+			// todo global rng ?
 			let mut rng = rand::thread_rng();
 			let track = self
 				.tracks
@@ -230,18 +231,28 @@ impl Queue {
 				.choose(&mut rng)
 				.ok_or(QueueError::NoTracks)?;
 
-			track.clone()
-		};
+			Ok(track.clone())
+		}
+	}
 
+	fn replace(&mut self, track: Track, player: &mut Player) {
 		player.replace(track.as_str());
-		if let Some(current) = self.current.replace(track) {
-			self.last.push_back(current);
 
-			// todo this can probably be like a 1000 times higher
-			if self.last.len() > 25 {
-				self.last.pop_front();
+		if self.current() != Some(&track) {
+			if let Some(current) = self.current.replace(track) {
+				self.last.push_back(current);
+
+				// todo this can probably be like a 1000 times higher
+				if self.last.len() > 25 {
+					self.last.pop_front();
+				}
 			}
 		}
+	}
+
+	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
+		let track = self.nxt()?;
+		self.replace(track, player);
 
 		Ok(())
 	}
@@ -280,13 +291,7 @@ impl Queue {
 	// todo error handling
 	pub fn done(&mut self, player: &mut Player, state: &State) {
 		if state.almost() {
-			let mut rng = rand::thread_rng();
-			let track = self
-				.tracks
-				.iter()
-				.choose(&mut rng)
-				.ok_or(QueueError::NoTracks)
-				.unwrap();
+			let track = self.nxt().unwrap();
 
 			self.current = Some(track.clone());
 			player.queue(track.as_str());
