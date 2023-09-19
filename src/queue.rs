@@ -18,6 +18,8 @@ pub enum QueueError {
 	NoTrack(PathBuf),
 	#[error("queue is empty")]
 	NoTracks,
+	#[error("out of bounds {0}")]
+	OutOfBounds(usize),
 }
 
 #[derive(Clone)]
@@ -202,14 +204,38 @@ impl Queue {
 		self.shuffle
 	}
 
+	pub fn shuffle(&mut self) {
+		self.next.clear();
+		self.last.clear();
+
+		self.shuffle = !self.shuffle
+	}
+
 	#[inline]
 	pub fn path(&self) -> Option<PathBuf> {
 		self.path.clone()
 	}
 
 	#[inline]
+	pub fn tracks(&self) -> &[Track] {
+		&self.tracks
+	}
+
+	#[inline]
 	pub fn current(&self) -> Option<&Track> {
 		self.current.as_ref()
+	}
+
+	#[inline]
+	pub fn idx(&self) -> Option<usize> {
+		self.current()
+			.and_then(|track| self.tracks().iter().position(|map| track == map))
+	}
+
+	#[inline]
+	fn get_track(&mut self, idx: usize) -> Result<Track, QueueError> {
+		let track = self.tracks.get(idx).ok_or(QueueError::OutOfBounds(idx))?;
+		Ok(track.clone())
 	}
 
 	pub fn last(&mut self, player: &mut Player) {
@@ -222,18 +248,39 @@ impl Queue {
 		}
 	}
 
-	fn nxt(&mut self) -> Result<Track, QueueError> {
-		if let Some(track) = self.next.pop() {
-			Ok(track)
-		} else {
-			// todo filter
-			let track = self
-				.tracks
-				.iter()
-				.choose(&mut self.rng)
-				.ok_or(QueueError::NoTracks)?;
+	fn nxt_seq(&mut self) -> Result<Track, QueueError> {
+		let len = self.tracks().len();
+		let idx = self.idx();
+		let idx = idx.map_or(0, |idx| {
+			if idx >= len - 1 {
+				0
+			} else {
+				idx.saturating_add(1)
+			}
+		});
 
-			Ok(track.clone())
+		self.get_track(idx)
+	}
+
+	fn nxt_shuf(&mut self) -> Result<Track, QueueError> {
+		let track = if let Some(current) = self.current().cloned() {
+			self.tracks
+				.iter()
+				.filter(|&track| track != &current)
+				.choose(&mut self.rng)
+		} else {
+			self.tracks.iter().choose(&mut self.rng)
+		};
+
+		let track = track.ok_or(QueueError::NoTracks)?;
+		Ok(track.clone())
+	}
+
+	fn nxt(&mut self) -> Result<Track, QueueError> {
+		if self.shuffle {
+			self.nxt_shuf()
+		} else {
+			self.nxt_seq()
 		}
 	}
 

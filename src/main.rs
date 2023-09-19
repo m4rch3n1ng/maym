@@ -115,6 +115,9 @@ impl Application {
 						(KeyCode::Right, KeyModifiers::NONE) => {
 							self.queue.seek_i(&mut self.player, &self.state, seek);
 						}
+						(KeyCode::Char('s'), KeyModifiers::NONE) => {
+							self.queue.shuffle();
+						}
 						// ignore
 						_ => {}
 					}
