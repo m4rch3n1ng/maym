@@ -19,11 +19,15 @@ pub enum StateError {
 	FromUtf8Error(#[from] std::string::FromUtf8Error),
 }
 
+const fn _default_true() -> bool {
+	true
+}
+
 #[serde_with::serde_as]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
 	pub volume: u64,
-	#[serde(skip)]
+	#[serde(skip, default = "_default_true")]
 	pub paused: bool,
 	pub muted: bool,
 	#[serde_as(as = "Option<serde_with::DurationSeconds>")]
