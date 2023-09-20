@@ -8,7 +8,7 @@ color-eyre = "0.6.2"
 conv = "0.3.3"
 crossterm = "0.27.0"
 id3 = "1.7.0"
-mpv = "0.2.3"
+libmpv = { git = "https://github.com/ParadoxSpiral/libmpv-rs", version = "2.0.1" }
 rand = "0.8.5"
 ratatui = "0.23.0"
 serde = "1.0.188"

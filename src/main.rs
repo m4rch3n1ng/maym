@@ -1,9 +1,11 @@
 use self::{player::Player, state::State};
+use color_eyre::eyre::Context;
 use config::{Config, ConfigError};
 use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
 };
+use player::PlayerError;
 use queue::{Queue, QueueError};
 use ratatui::{
 	prelude::{Backend, CrosstermBackend},
@@ -26,8 +28,8 @@ mod ui;
 #[derive(Debug, Error)]
 #[allow(clippy::enum_variant_names)]
 pub enum MayError {
-	#[error("mpv error")]
-	MpvError(#[from] mpv::Error),
+	#[error("player error")]
+	PlayerError(#[from] PlayerError),
 	#[error("state error")]
 	StateError(#[from] StateError),
 	#[error("config error")]
@@ -49,7 +51,7 @@ struct Application {
 }
 
 impl Application {
-	pub fn new() -> Result<Self, MayError> {
+	pub fn new() -> color_eyre::Result<Self> {
 		let config = Config::init()?;
 		let state = State::init()?;
 		let queue = Queue::state(&state);
@@ -172,8 +174,8 @@ impl Application {
 fn main() -> color_eyre::Result<()> {
 	color_eyre::install()?;
 
-	let mut app = Application::new()?;
-	app.start()?;
+	let mut app = Application::new().wrap_err("music error")?;
+	app.start().wrap_err("music error")?;
 
 	Ok(())
 }

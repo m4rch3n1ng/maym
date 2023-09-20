@@ -1,11 +1,120 @@
 use crate::queue::Queue;
 use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
-use mpv::{MpvHandler, MpvHandlerBuilder};
+use libmpv::{FileState, Mpv};
 use std::fmt::Debug;
 use std::time::Duration;
+use thiserror::Error;
 
-pub struct Player(MpvHandler);
+#[derive(Debug, Error)]
+pub enum MpvError {
+	#[error("success")]
+	Success,
+	#[error("event queue full")]
+	EventQueueFull,
+	#[error("memory allocation failed")]
+	NoMem,
+	#[error("the mpv core wasn't configured and initialized yet")]
+	Uninitialized,
+	#[error("invalid parameter")]
+	InvalidParameter,
+	#[error("option doesn't exist")]
+	OptionNotFound,
+	#[error("unsupported mpv option format")]
+	OptionFormat,
+	#[error("setting the option failed")]
+	OptionError,
+	#[error("property not found")]
+	PropertyNotFound,
+	#[error("unsupported property format")]
+	PropertyFormat,
+	#[error("property exists but is unavailable")]
+	PropertyUnvailable,
+	#[error("error setting or getting poperty")]
+	PropertyError,
+	#[error("error running command")]
+	Command,
+	#[error("error loading")]
+	LoadingFailed,
+	#[error("initializing audio output failed")]
+	AoInitFailed,
+	#[error("initializing video output failed")]
+	VoInitFailed,
+	#[error("no audio or video data to play")]
+	NothingToPlay,
+	#[error("unknown file format")]
+	UnknownFormat,
+	#[error("certain system requirements are not fulfilled")]
+	Unsupported,
+	#[error("api function not implemented")]
+	NotImplemented,
+	#[error("unspecified error")]
+	Generic,
+	#[error("unknown mpv error")]
+	Unknown,
+}
+
+impl From<i32> for MpvError {
+	fn from(value: i32) -> Self {
+		match value {
+			0..=i32::MAX => MpvError::Success,
+			-1 => MpvError::EventQueueFull,
+			-2 => MpvError::NoMem,
+			-3 => MpvError::Uninitialized,
+			-4 => MpvError::InvalidParameter,
+			-5 => MpvError::OptionNotFound,
+			-6 => MpvError::OptionFormat,
+			-7 => MpvError::OptionError,
+			-8 => MpvError::PropertyNotFound,
+			-9 => MpvError::PropertyFormat,
+			-10 => MpvError::PropertyUnvailable,
+			-11 => MpvError::PropertyError,
+			-12 => MpvError::Command,
+			-13 => MpvError::LoadingFailed,
+			-14 => MpvError::AoInitFailed,
+			-15 => MpvError::VoInitFailed,
+			-16 => MpvError::NothingToPlay,
+			-17 => MpvError::UnknownFormat,
+			-18 => MpvError::Unsupported,
+			-19 => MpvError::NotImplemented,
+			-20 => MpvError::Generic,
+			i32::MIN..=-21 => MpvError::Unknown,
+		}
+	}
+}
+
+#[derive(Debug, Error)]
+pub enum PlayerError {
+	#[error("error loading files")]
+	LoadFiles { index: usize },
+	#[error("version mismatch")]
+	VersionMismatch { linked: u64, loaded: u64 },
+	#[error("invalid utf8")]
+	InvalidUtf8,
+	#[error("null error")]
+	Null,
+	#[error("mpv error")]
+	MpvError(#[source] MpvError),
+}
+
+impl From<libmpv::Error> for PlayerError {
+	fn from(value: libmpv::Error) -> Self {
+		match value {
+			libmpv::Error::Loadfiles { index, error: _ } => PlayerError::LoadFiles { index },
+			libmpv::Error::VersionMismatch { linked, loaded } => {
+				PlayerError::VersionMismatch { linked, loaded }
+			}
+			libmpv::Error::InvalidUtf8 => PlayerError::InvalidUtf8,
+			libmpv::Error::Null => PlayerError::Null,
+			libmpv::Error::Raw(err) => {
+				let mpv_err = MpvError::from(err);
+				PlayerError::MpvError(mpv_err)
+			}
+		}
+	}
+}
+
+pub struct Player(Mpv);
 
 impl Debug for Player {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -14,18 +123,18 @@ impl Debug for Player {
 }
 
 impl Player {
-	pub fn new() -> Result<Self, mpv::Error> {
-		let mut mpv = MpvHandlerBuilder::new()?.build()?;
+	pub fn new() -> color_eyre::Result<Self> {
+		let mpv = Mpv::new().map_err(PlayerError::from)?;
 
-		mpv.set_option("vo", "null")?;
+		mpv.set_property("vo", "null").map_err(PlayerError::from)?;
 
 		let player = Player(mpv);
 		Ok(player)
 	}
 
-	pub fn state(&mut self, queue: &Queue, state: &State) -> Result<(), mpv::Error> {
-		self.0.set_property("volume", state.volume as i64)?;
-		self.0.set_property("mute", state.muted)?;
+	pub fn state(&mut self, queue: &Queue, state: &State) -> color_eyre::Result<()> {
+		self.0.set_property("volume", state.volume as i64).map_err(PlayerError::from)?;
+		self.0.set_property("mute", state.muted).map_err(PlayerError::from)?;
 
 		if let Some(track) = queue.current() {
 			let start = state.elapsed();
@@ -38,26 +147,29 @@ impl Player {
 		Ok(())
 	}
 
+	fn revive(&mut self, track: &str, start: Duration) -> Result<(), PlayerError> {
+		let start = format!("start={},pause=yes", start.as_secs());
+		let file = (track, FileState::Replace, Some::<&str>(&start));
+		self.0.playlist_load_files(&[file])?;
+
+		Ok(())
+	}
+
 	pub fn queue(&mut self, track: &str) {
 		self.0
-			.command(&["loadfile", &track, "append-play"])
+			.playlist_load_files(&[(&track, FileState::AppendPlay, None)])
+			.expect("error loading file");
+	}
+
+	pub fn replace(&mut self, track: &str) {
+		self.0
+			.playlist_load_files(&[(&track, FileState::Replace, None)])
 			.expect("error loading file");
 	}
 
 	pub fn seek(&mut self, start: Duration) {
 		let start = start.as_secs_f64();
 		self.0.set_property("time-pos", start).unwrap();
-	}
-
-	fn revive(&mut self, track: &str, start: Duration) -> Result<(), mpv::Error> {
-		let start = format!("start={},pause=yes", start.as_secs());
-		self.0.command(&["loadfile", track, "replace", &start])
-	}
-
-	pub fn replace(&mut self, track: &str) {
-		self.0
-			.command(&["loadfile", track, "replace"])
-			.expect("error loading file");
 	}
 
 	pub fn toggle(&mut self) {
@@ -86,20 +198,20 @@ impl Player {
 	}
 
 	pub fn duration(&self) -> Option<Duration> {
-		match self.0.get_property("duration") {
+		match self.0.get_property("duration").map_err(PlayerError::from) {
 			Ok(duration) => Some(Duration::from_secs_f64(duration)),
-			Err(mpv::Error::MPV_ERROR_PROPERTY_UNAVAILABLE) => None,
+			Err(PlayerError::MpvError(MpvError::PropertyUnvailable)) => None,
 			Err(err) => panic!("couldn't get duration {}", err),
 		}
 	}
 
 	pub fn elapsed(&self) -> Option<Duration> {
-		match self.0.get_property::<f64>("time-pos") {
+		match self.0.get_property("time-pos").map_err(PlayerError::from) {
 			Ok(elapsed) => {
 				let elapsed = f64::max(0.0, elapsed);
 				Some(Duration::from_secs_f64(elapsed))
 			}
-			Err(mpv::Error::MPV_ERROR_PROPERTY_UNAVAILABLE) => None,
+			Err(PlayerError::MpvError(MpvError::PropertyUnvailable)) => None,
 			Err(err) => panic!("couldn't get duration {}", err),
 		}
 	}
