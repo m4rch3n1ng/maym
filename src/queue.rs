@@ -277,7 +277,9 @@ impl Queue {
 	}
 
 	fn nxt(&mut self) -> Result<Track, QueueError> {
-		if self.shuffle {
+		if let Some(track) = self.next.pop() {
+			Ok(track)
+		} else if self.shuffle {
 			self.nxt_shuf()
 		} else {
 			self.nxt_seq()
