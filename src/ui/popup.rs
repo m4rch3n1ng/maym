@@ -228,6 +228,7 @@ impl Popup for Lyrics {
 pub struct Tracks {
 	state: ListState,
 	len: usize,
+	page: Option<usize>,
 }
 
 impl Tracks {
@@ -240,6 +241,7 @@ impl Tracks {
 		Tracks {
 			state,
 			len: queue.tracks().len(),
+			page: None,
 		}
 	}
 
@@ -252,6 +254,12 @@ impl Tracks {
 
 		frame.render_widget(Clear, area);
 		frame.render_widget(block, area);
+
+		let page = usize::from(list_area.height);
+		if self.page.is_none() {
+			*self.state.offset_mut() = self.len.saturating_sub(page);
+		}
+		self.page = Some(page);
 
 		let path = queue.path();
 		let line = path.map_or(
@@ -269,6 +277,11 @@ impl Tracks {
 		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
+	fn offset(&self) -> usize {
+		self.page
+			.map_or(usize::MAX, |page| self.len.saturating_sub(page))
+	}
+
 	pub fn reset(&mut self, queue: &Queue) {
 		self.state.select(Some(0));
 		self.len = queue.tracks().len();
@@ -276,7 +289,9 @@ impl Tracks {
 
 	pub fn select(&mut self, idx: usize) {
 		self.state.select(Some(idx));
-		*self.state.offset_mut() = usize::MAX;
+
+		let offset = self.offset();
+		*self.state.offset_mut() = offset;
 	}
 
 	// todo wrap around ?
