@@ -288,6 +288,7 @@ impl Queue {
 
 	fn replace(&mut self, track: Track, player: &mut Player) {
 		player.replace(track.as_str());
+		player.pause(false);
 
 		if self.current() != Some(&track) {
 			if let Some(current) = self.current.replace(track) {

@@ -67,6 +67,10 @@ impl Player {
 			.expect("couldn't toggle player");
 	}
 
+	pub fn pause (&mut self, value: bool) {
+		self.0.set_property("pause", value).expect("couldn't pause player");
+	}
+
 	pub fn volume(&self) -> u64 {
 		let vol = self
 			.0
