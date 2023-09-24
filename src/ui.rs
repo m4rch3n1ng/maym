@@ -45,13 +45,7 @@ impl Ui {
 	}
 
 	// todo make generic maybe ?
-	fn popup(
-		&mut self,
-		frame: &mut Frame,
-		main: Rect,
-		state: &State,
-		queue: &Queue,
-	) {
+	fn popup(&mut self, frame: &mut Frame, main: Rect, state: &State, queue: &Queue) {
 		let area = window::popup(main);
 		match self.popup {
 			Some(Popups::Tags) => {

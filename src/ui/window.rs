@@ -5,7 +5,7 @@ use ratatui::{
 	prelude::{Alignment, Constraint, Direction, Layout, Rect},
 	style::{Color, Style, Stylize},
 	symbols,
-	text::{Line, Text},
+	text::{Line, Span},
 	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
 	Frame,
 };
@@ -54,7 +54,7 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 			.split(area);
 
 		let seek = chunks[0];
-		self::seek_seek(frame, (elapsed, duration), seek);
+		self::seek_seek(frame, (elapsed, duration), state, seek);
 
 		let info = chunks[1];
 		self::seek_info(frame, state, info);
@@ -69,48 +69,85 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 	}
 }
 
-fn seek_seek(frame: &mut Frame, (elapsed, duration): (Duration, Duration), area: Rect) {
+fn seek_seek(
+	frame: &mut Frame,
+	(elapsed, duration): (Duration, Duration),
+	state: &State,
+	area: Rect,
+) {
 	let fmt_elapsed = utils::fmt_duration(elapsed);
 	let fmt_duration = utils::fmt_duration(duration);
-	let fmt = format!("{} / {}", fmt_elapsed, fmt_duration);
+	let text = Line::from(vec![
+		if state.paused {
+			Span::styled(&fmt_elapsed, Style::default().dim())
+		} else {
+			Span::raw(&fmt_elapsed)
+		},
+		Span::raw(" / "),
+		Span::raw(&fmt_duration),
+	]);
 
-	let len = fmt.len() + 4;
+	let len = fmt_elapsed.len() + 3 + fmt_duration.len() + 4;
 	let len = len.approx_as::<u16>().unwrap_or_saturate();
 	let chunks = Layout::default()
 		.direction(Direction::Horizontal)
 		.constraints([Constraint::Max(len), Constraint::Min(0)])
 		.split(area);
 
-	let t = chunks[0];
-	let text = Text::from(fmt);
+	let text_area = chunks[0];
 	let block = Block::default().padding(Padding::new(2, 0, 0, 0));
 	let par = Paragraph::new(text).block(block);
-	frame.render_widget(par, t);
+	frame.render_widget(par, text_area);
 
-	let g = chunks[1];
+	let gauge_area = chunks[1];
 	let progress = elapsed.as_secs_f64() / duration.as_secs_f64();
 	let block = Block::default().padding(Padding::new(0, 2, 0, 0));
 	let gauge = LineGauge::default()
 		.block(block)
 		.label("")
-		.gauge_style(Style::default().fg(Color::Magenta))
+		.gauge_style(Style::default().fg(if state.paused {
+			Color::Red
+		} else {
+			Color::Green
+		}))
 		.line_set(symbols::line::THICK)
 		.ratio(progress);
-	frame.render_widget(gauge, g);
+	frame.render_widget(gauge, gauge_area);
 }
 
 fn seek_info(frame: &mut Frame, state: &State, area: Rect) {
-	let vol = state.volume;
-	let muted = state.muted;
-	let paused = state.paused;
-	let shuffle = state.shuffle;
-	let text = format!(
-		"shuffle: {} ~ paused: {} ~ muted: {} ~ vol {: >2}%",
-		shuffle, paused, muted, vol
-	);
+	let fmt_vol = format!("{: >3}%", state.volume);
+	let (vol_str, vol) = if state.muted {
+		(
+			Span::styled("mute", Style::default().yellow()),
+			Span::styled(fmt_vol, Style::default().dim()),
+		)
+	} else {
+		(Span::raw("vol:"), Span::raw(fmt_vol))
+	};
+
+	let paused = if state.paused {
+		Span::styled("pause", Style::default().red())
+	} else {
+		Span::styled(" play", Style::default().green())
+	};
+
+	let shuffle = if state.shuffle {
+		Span::styled("shuffle", Style::default().yellow())
+	} else {
+		Span::styled("no shuffle", Style::default().dim())
+	};
 
 	let block = Block::default().padding(Padding::new(2, 2, 0, 0));
-	let par = Paragraph::new(text)
+	let line = Line::from(vec![
+		shuffle,
+		Span::raw(" ~ "),
+		paused,
+		Span::raw(" ~ "),
+		vol_str,
+		vol,
+	]);
+	let par = Paragraph::new(line)
 		.block(block)
 		.alignment(Alignment::Right);
 	frame.render_widget(par, area);
