@@ -100,7 +100,7 @@ pub enum PlayerError {
 impl From<libmpv::Error> for PlayerError {
 	fn from(value: libmpv::Error) -> Self {
 		match value {
-			libmpv::Error::Loadfiles { index, error: _ } => PlayerError::LoadFiles { index },
+			libmpv::Error::Loadfiles { index, .. } => PlayerError::LoadFiles { index },
 			libmpv::Error::VersionMismatch { linked, loaded } => {
 				PlayerError::VersionMismatch { linked, loaded }
 			}
@@ -133,8 +133,12 @@ impl Player {
 	}
 
 	pub fn state(&mut self, queue: &Queue, state: &State) -> color_eyre::Result<()> {
-		self.0.set_property("volume", state.volume as i64).map_err(PlayerError::from)?;
-		self.0.set_property("mute", state.muted).map_err(PlayerError::from)?;
+		self.0
+			.set_property("volume", state.volume as i64)
+			.map_err(PlayerError::from)?;
+		self.0
+			.set_property("mute", state.muted)
+			.map_err(PlayerError::from)?;
 
 		if let Some(track) = queue.current() {
 			let start = state.elapsed();
@@ -167,8 +171,8 @@ impl Player {
 			.expect("error loading file");
 	}
 
-	pub fn seek(&mut self, start: Duration) {
-		let start = start.as_secs_f64();
+	pub fn seek(&mut self, position: Duration) {
+		let start = position.as_secs_f64();
 		self.0.set_property("time-pos", start).unwrap();
 	}
 
@@ -179,8 +183,10 @@ impl Player {
 			.expect("couldn't toggle player");
 	}
 
-	pub fn pause (&mut self, value: bool) {
-		self.0.set_property("pause", value).expect("couldn't pause player");
+	pub fn pause(&mut self, value: bool) {
+		self.0
+			.set_property("pause", value)
+			.expect("couldn't pause player");
 	}
 
 	pub fn volume(&self) -> u64 {
@@ -229,7 +235,7 @@ impl Player {
 
 	pub fn i_vol(&mut self, amt: u64) {
 		let vol = self.volume();
-		let vol = u64::min(100, vol + amt);
+		let vol = u64::min(100, vol.saturating_add(amt));
 
 		self.0
 			.set_property("volume", vol as i64)

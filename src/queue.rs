@@ -208,7 +208,7 @@ impl Queue {
 		self.next.clear();
 		self.last.clear();
 
-		self.shuffle = !self.shuffle
+		self.shuffle = !self.shuffle;
 	}
 
 	#[inline]
@@ -238,6 +238,7 @@ impl Queue {
 		Ok(track.clone())
 	}
 
+	// todo last for seq
 	pub fn last(&mut self, player: &mut Player) {
 		if let Some(track) = self.last.pop_back() {
 			player.replace(track.as_str());
@@ -249,10 +250,14 @@ impl Queue {
 	}
 
 	fn nxt_seq(&mut self) -> Result<Track, QueueError> {
+		if self.tracks.is_empty() {
+			return Err(QueueError::NoTracks);
+		}
+
 		let len = self.tracks().len();
 		let idx = self.idx();
 		let idx = idx.map_or(0, |idx| {
-			if idx >= len - 1 {
+			if idx + 1 >= len {
 				0
 			} else {
 				idx.saturating_add(1)
@@ -316,25 +321,26 @@ impl Queue {
 		}
 	}
 
-	pub fn seek_d(&self, player: &mut Player, state: &State, amt: u64) {
+	pub fn seek_d(&self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some() {
 			if let Some(elapsed) = state.elapsed() {
-				let amt = Duration::from_secs(amt);
-				let start = elapsed.saturating_sub(amt);
-
-				player.seek(start);
+				let position = elapsed.saturating_sub(amt);
+				player.seek(position);
 			}
 		}
 	}
 
 	// todo fix loop around at the end
-	pub fn seek_i(&self, player: &mut Player, state: &State, amt: u64) {
+	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some() {
 			if let Some((elapsed, duration)) = state.elapsed_duration() {
-				let amt = Duration::from_secs(amt);
-				let start = Duration::min(duration, elapsed + amt);
+				let position = elapsed.saturating_add(amt);
 
-				player.seek(start);
+				if position >= duration {
+					self.next(player).unwrap();
+				} else {
+					player.seek(position);
+				}
 			}
 		}
 	}

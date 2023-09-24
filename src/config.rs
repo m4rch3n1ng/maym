@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::{fs, time::Duration};
 use thiserror::Error;
 
 const PATH: &str = "/home/may/.config/m4rch/player/config.json";
@@ -28,8 +28,9 @@ impl Config {
 	}
 
 	#[inline]
-	pub fn seek(&self) -> u64 {
-		self.seek.unwrap_or(5)
+	pub fn seek(&self) -> Duration {
+		let seek = self.seek.unwrap_or(5);
+		Duration::from_secs(seek)
 	}
 
 	#[inline]
