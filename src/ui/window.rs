@@ -13,36 +13,36 @@ use std::time::Duration;
 
 pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 	let bold = Style::default().bold();
-	let dimmed = Style::default().dim();
-	let dim = dimmed.italic();
+	let dim = Style::default().dim();
+	let dim_italic = dim.italic();
 
 	let block = Block::default()
-		.title("main")
+		.title(" main ")
 		.borders(Borders::ALL)
 		.padding(Padding::new(4, 4, 2, 2));
 
 	if let Some(track) = state.track.as_ref() {
 		let title = track
 			.title()
-			.map_or(Line::styled("track has no title", dim), |title| {
+			.map_or(Line::styled("track has no title", dim_italic), |title| {
 				Line::styled(title, bold)
 			});
 		let artist = track
 			.artist()
-			.map_or(Line::styled("track has no artist", dim), Line::from);
+			.map_or(Line::styled("track has no artist", dim_italic), Line::from);
 
 		let text = vec![title, artist];
 		let para = Paragraph::new(text).block(block);
 		frame.render_widget(para, area);
 	} else {
-		let line = Line::styled("no track playing", dim);
-		let para = Paragraph::new(line).block(block.border_style(dimmed));
+		let line = Line::styled("no track playing", dim_italic);
+		let para = Paragraph::new(line).block(block.border_style(dim));
 		frame.render_widget(para, area);
 	}
 }
 
 pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
-	let block = Block::default().title("seek").borders(Borders::ALL);
+	let block = Block::default().title(" seek ").borders(Borders::ALL);
 
 	if let Some((elapsed, duration)) = state.elapsed_duration() {
 		frame.render_widget(block, area);

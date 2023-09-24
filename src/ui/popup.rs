@@ -77,7 +77,7 @@ pub struct Tags {
 
 impl Tags {
 	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let block = utils::popup::block().title("tags");
+		let block = utils::popup::block().title(" tags ");
 		let list = self.list(state);
 
 		let par = if self.do_scroll {
@@ -162,7 +162,7 @@ pub struct Lyrics {
 
 impl Lyrics {
 	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let block = utils::popup::block().title("lyrics");
+		let block = utils::popup::block().title(" lyrics ");
 		let list = self.list(state);
 
 		// wrap depends on https://github.com/ratatui-org/ratatui/issues/136
@@ -248,7 +248,7 @@ impl Tracks {
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
 		let items = tracks_list(queue);
 
-		let block = utils::popup::block().title("tracks");
+		let block = utils::popup::block().title(" tracks ");
 		let inner = block.inner(area);
 		let (title_area, list_area) = utils::popup::double_layout(inner);
 
@@ -344,7 +344,7 @@ impl Lists {
 		let children = self.list.children();
 		let items = lists_list(&children);
 
-		let block = utils::popup::block().title("lists");
+		let block = utils::popup::block().title(" lists ");
 		let list = ListWidget::new(items)
 			.block(block)
 			.style(Style::default().dim())
