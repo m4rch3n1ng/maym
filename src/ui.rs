@@ -29,7 +29,7 @@ impl Ui {
 			tags: Tags::default(),
 			lyrics: Lyrics::default(),
 			tracks: Tracks::new(queue),
-			lists: Lists::new(config),
+			lists: Lists::new(config, queue),
 			popup: None,
 		}
 	}

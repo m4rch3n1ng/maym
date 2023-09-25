@@ -340,17 +340,17 @@ pub struct Lists {
 }
 
 impl Lists {
-	pub fn new(config: &Config) -> Self {
+	pub fn new(config: &Config, queue: &Queue) -> Self {
 		let lists = config.lists().to_owned();
 		let state = ListState::default().with_selected(Some(0));
 
-		// todo find current list from queue
+		let list = if let Some(path) = queue.path() {
+			lists.iter().find_map(|list| list.find(path))
+		} else {
+			None
+		};
 
-		Lists {
-			state,
-			lists,
-			list: None,
-		}
+		Lists { state, lists, list }
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
@@ -362,12 +362,27 @@ impl Lists {
 		};
 
 		let block = utils::popup::block().title(" lists ");
+		let inner = block.inner(area);
+		let (title_area, list_area) = utils::popup::double_layout(inner);
+
+		frame.render_widget(Clear, area);
+		frame.render_widget(block, area);
+
+		let line = self
+			.list
+			.as_ref()
+			.map_or(Line::styled("<< \"/\"", Style::default().bold()), |list| {
+				Line::styled(format!("<< {:?}", list.path), Style::default().bold())
+			});
+		let paragraph = Paragraph::new(line);
+		frame.render_widget(paragraph, title_area);
+
 		let list = ListWidget::new(items)
-			.block(block)
+			.block(Block::default())
 			.style(Style::default().dim())
 			.highlight_style(Style::default().remove_modifier(Modifier::DIM));
 
-		frame.render_stateful_widget(list, area, &mut self.state);
+		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
 	fn len(&self) -> usize {

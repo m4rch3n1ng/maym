@@ -1,4 +1,4 @@
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use once_cell::sync::Lazy;
 use ratatui::{
 	style::{Style, Stylize},
@@ -148,6 +148,19 @@ impl List {
 		let name = self.path.as_str();
 		Line::from(name)
 	}
+
+	pub fn find(&self, other: &Utf8Path) -> Option<List> {
+		if self == &other {
+			Some(self.clone())
+		} else if other.ancestors().any(|p| self == &p) {
+			self.children().into_iter().find_map(|child| match child {
+				Child::List(list) => list.find(other),
+				Child::Mp3(_) => None,
+			})
+		} else {
+			None
+		}
+	}
 }
 
 impl Eq for List {}
@@ -155,6 +168,12 @@ impl Eq for List {}
 impl PartialEq for List {
 	fn eq(&self, other: &Self) -> bool {
 		self.path.eq(&other.path)
+	}
+}
+
+impl PartialEq<&Utf8Path> for List {
+	fn eq(&self, other: &&Utf8Path) -> bool {
+		self.path.eq(other)
 	}
 }
 
