@@ -31,7 +31,13 @@ pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 			.artist()
 			.map_or(Line::styled("track has no artist", dim_italic), Line::from);
 
-		let text = vec![title, artist];
+		let text = if let Some(album) = track.album() {
+			let album = Line::styled(album, dim);
+			vec![title, artist, album]
+		} else {
+			vec![title, artist]
+		};
+
 		let para = Paragraph::new(text).block(block);
 		frame.render_widget(para, area);
 	} else {
@@ -165,18 +171,18 @@ pub fn popup(main: Rect) -> Rect {
 	let vert = Layout::default()
 		.direction(Direction::Vertical)
 		.constraints([
-			Constraint::Percentage(10),
+			Constraint::Percentage(15),
 			Constraint::Percentage(80),
-			Constraint::Percentage(10),
+			Constraint::Percentage(5),
 		])
 		.split(main);
 
 	Layout::default()
 		.direction(Direction::Horizontal)
 		.constraints([
-			Constraint::Percentage(20),
-			Constraint::Percentage(60),
-			Constraint::Percentage(20),
+			Constraint::Percentage(15),
+			Constraint::Percentage(70),
+			Constraint::Percentage(15),
 		])
 		.split(vert[1])[1]
 }
