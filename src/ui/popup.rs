@@ -327,22 +327,39 @@ fn tracks_list(queue: &Queue) -> Vec<ListItem> {
 }
 
 #[derive(Debug)]
+enum ListType<'a> {
+	Child(Child, &'a List),
+	List(List),
+}
+
+#[derive(Debug)]
 pub struct Lists {
 	state: ListState,
-	list: List,
+	lists: Vec<List>,
+	list: Option<List>,
 }
 
 impl Lists {
 	pub fn new(config: &Config) -> Self {
-		let list = config.lists()[0].clone();
+		let lists = config.lists().to_owned();
 		let state = ListState::default().with_selected(Some(0));
 
-		Lists { state, list }
+		// todo find current list from queue
+
+		Lists {
+			state,
+			lists,
+			list: None,
+		}
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
-		let children = self.list.children();
-		let items = lists_list(&children);
+		let children = self.list.as_ref().map(|list| list.children());
+		let items = if let Some(ref children) = children {
+			lists_list(children)
+		} else {
+			root_list(&self.lists)
+		};
 
 		let block = utils::popup::block().title(" lists ");
 		let list = ListWidget::new(items)
@@ -353,10 +370,18 @@ impl Lists {
 		frame.render_stateful_widget(list, area, &mut self.state);
 	}
 
+	fn len(&self) -> usize {
+		if let Some(ref list) = self.list {
+			list.children().len()
+		} else {
+			self.lists.len()
+		}
+	}
+
 	// todo wrap around
 	pub fn down(&mut self) {
-		let len = self.list.children().len();
-		let next = self.state.selected().map(|i| usize::min(len, i + 1));
+		let len = self.len();
+		let next = self.state.selected().map(|i| usize::min(len - 1, i + 1));
 		self.state.select(next);
 	}
 
@@ -366,43 +391,74 @@ impl Lists {
 		self.state.select(prev);
 	}
 
-	fn curr(&self) -> Child {
-		let children = self.list.children();
-		let idx = self.state.selected().unwrap();
-		children[idx].clone()
+	fn curr(&self) -> ListType {
+		if let Some(ref list) = self.list {
+			let children = list.children();
+			let idx = self.state.selected().expect("state should always be Some");
+
+			let child = children[idx].clone();
+			ListType::Child(child, list)
+		} else {
+			let idx = self.state.selected().expect("state should always be Some");
+			let list = self.lists[idx].clone();
+			ListType::List(list)
+		}
 	}
 
 	pub fn right(&mut self) {
-		let child = self.curr();
-		if let Some(list) = child.list() {
-			self.list = list.clone();
-			self.state.select(Some(0));
+		let curr = self.curr();
+
+		match curr {
+			ListType::Child(child, _) => {
+				if let Some(list) = child.list() {
+					let list = list.clone();
+					self.list = Some(list);
+					self.state.select(Some(0));
+				}
+			}
+			ListType::List(list) => {
+				self.list = Some(list);
+				self.state.select(Some(0));
+			}
 		}
 	}
 
 	pub fn left(&mut self) {
-		let curr = &self.list;
+		if let Some(ref list) = self.list {
+			if let Some(parent) = list.parent() {
+				let idx = parent.children().iter().position(|child| child == list);
+				let idx = idx.unwrap_or(0);
 
-		if let Some(list) = self.list.parent() {
-			let idx = list.children().iter().position(|child| child == curr);
-			let idx = idx.unwrap_or(0);
+				self.list = Some(parent);
+				self.state.select(Some(idx));
+			} else {
+				let idx = self.lists.iter().position(|root| root == list);
+				let idx = idx.unwrap_or(0);
 
-			self.list = list;
-			self.state.select(Some(idx));
+				self.list = None;
+				self.state.select(Some(idx));
+			}
 		}
 	}
 
 	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) {
-		let child = self.curr();
-		match child {
-			Child::List(list) => {
-				self.list = list.clone();
+		let curr = self.curr();
+
+		match curr {
+			ListType::List(list) => {
+				self.list = Some(list);
 				self.state.select(Some(0));
 			}
-			Child::Mp3(path) => {
-				queue.queue(&self.list.path).unwrap();
-				queue.select_path(&path, player);
-			}
+			ListType::Child(child, parent) => match child {
+				Child::List(list) => {
+					self.list = Some(list.clone());
+					self.state.select(Some(0));
+				}
+				Child::Mp3(path) => {
+					queue.queue(&parent.path).unwrap();
+					queue.select_path(&path, player);
+				}
+			},
 		}
 	}
 }
@@ -411,6 +467,14 @@ fn lists_list(children: &[Child]) -> Vec<ListItem> {
 	children
 		.iter()
 		.map(|child| child.line())
+		.map(ListItem::new)
+		.collect()
+}
+
+fn root_list(lists: &[List]) -> Vec<ListItem> {
+	lists
+		.iter()
+		.map(|root| root.line())
 		.map(ListItem::new)
 		.collect()
 }

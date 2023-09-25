@@ -304,11 +304,14 @@ impl Queue {
 		Ok(track.clone())
 	}
 
-	pub fn queue(&mut self, path: &Utf8Path) -> Result<(), QueueError> {
-		let mut tracks = Track::directory(path)?;
+	pub fn queue<P: AsRef<Utf8Path> + Into<Utf8PathBuf>>(
+		&mut self,
+		path: P,
+	) -> Result<(), QueueError> {
+		let mut tracks = Track::directory(&path)?;
 		tracks.sort();
 
-		self.path = Some(path.to_owned());
+		self.path = Some(path.into());
 		self.tracks = tracks;
 		self.current = None;
 		self.last.clear();

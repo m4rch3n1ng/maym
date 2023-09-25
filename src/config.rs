@@ -143,6 +143,11 @@ impl List {
 		children.sort();
 		children
 	}
+
+	pub fn line(&self) -> Line {
+		let name = self.path.as_str();
+		Line::from(name)
+	}
 }
 
 impl Eq for List {}
