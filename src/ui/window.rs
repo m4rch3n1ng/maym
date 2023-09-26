@@ -125,23 +125,23 @@ fn seek_info(frame: &mut Frame, state: &State, area: Rect) {
 	let fmt_vol = format!("{: >3}%", state.volume);
 	let (vol_str, vol) = if state.muted {
 		(
-			Span::styled("mute", Style::default().yellow()),
+			Span::styled("[mute]", Style::default().yellow()),
 			Span::styled(fmt_vol, Style::default().dim()),
 		)
 	} else {
-		(Span::raw("vol:"), Span::raw(fmt_vol))
+		(Span::raw("[vol]:"), Span::raw(fmt_vol))
 	};
 
 	let paused = if state.paused {
-		Span::styled("pause", Style::default().red())
+		Span::styled("[pause]", Style::default().red())
 	} else {
-		Span::styled(" play", Style::default().green())
+		Span::styled(" [play]", Style::default().green())
 	};
 
 	let shuffle = if state.shuffle {
-		Span::styled("shuffle", Style::default().yellow())
+		Span::styled("[shuffle]", Style::default().yellow())
 	} else {
-		Span::styled("no shuffle", Style::default().dim())
+		Span::styled("[no shuffle]", Style::default().dim())
 	};
 
 	let block = Block::default().padding(Padding::new(2, 2, 0, 0));
