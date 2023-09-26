@@ -11,7 +11,7 @@ use rubato::{FastFixedIn, PolynomialDegree, Resampler};
 use std::{collections::VecDeque, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PlaybackStatus {
+pub enum PlaybackStatus {
 	Paused,
 	Play,
 }
@@ -388,6 +388,11 @@ impl Player {
 
 	pub fn toggle(&mut self) {
 		let status = self.status.invert();
+		self.status = status;
+		let _ = self.to_process_tx.push(ToProcess::Status(status));
+	}
+
+	pub fn pause(&mut self, status: PlaybackStatus) {
 		self.status = status;
 		let _ = self.to_process_tx.push(ToProcess::Status(status));
 	}
