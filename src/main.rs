@@ -11,10 +11,12 @@ use crossterm::{
 	event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
 	execute, terminal,
 };
+use mpris::{Mpris, MprisEvent};
 use ratatui::{
 	backend::{Backend, CrosstermBackend},
 	terminal::Terminal,
 };
+use std::sync::mpsc::TryRecvError;
 use std::{
 	io,
 	time::{Duration, Instant},
@@ -22,6 +24,7 @@ use std::{
 use thiserror::Error;
 
 mod config;
+mod mpris;
 mod player;
 mod queue;
 mod state;
@@ -37,6 +40,8 @@ enum MusicError {
 	QueueError(#[from] QueueError),
 	#[error("state error")]
 	StateError(#[from] StateError),
+	#[error("try recv error")]
+	TryRecvError(#[from] TryRecvError),
 }
 
 #[derive(Debug)]
@@ -46,6 +51,7 @@ struct Application {
 	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
+	mpris: Mpris,
 	tick: Duration,
 }
 
@@ -56,6 +62,7 @@ impl Application {
 
 		let state = State::init();
 		let queue = Queue::state(&state)?;
+		let mpris = Mpris::new();
 
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
@@ -63,13 +70,13 @@ impl Application {
 		let ui = Ui::new(&queue, &config);
 
 		let tick = Duration::from_millis(100);
-
 		let app = Application {
 			player,
 			config,
 			state,
 			queue,
 			ui,
+			mpris,
 			tick,
 		};
 		Ok(app)
@@ -82,6 +89,25 @@ impl Application {
 
 		loop {
 			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
+
+			if let Some(event) = self.mpris.recv()? {
+				match event {
+					MprisEvent::Next => {
+						let _ = self.queue.next(&mut self.player);
+						skip_done = true;
+					}
+					MprisEvent::Prev => self.queue.last(&mut self.player),
+					MprisEvent::Toggle => self.player.toggle(),
+					MprisEvent::Pause => self.player.pause(true),
+					MprisEvent::Play => self.player.pause(false),
+					MprisEvent::Seek(duration) => {
+						self.queue.seek_i(&mut self.player, &self.state, duration);
+					}
+					MprisEvent::SeekBack(duration) => {
+						self.queue.seek_d(&mut self.player, &self.state, duration);
+					}
+				}
+			}
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout)? {
