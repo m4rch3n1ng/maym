@@ -57,7 +57,7 @@ impl Ui {
 				self.lyrics.update_scroll(area, state);
 				self.lyrics.draw(frame, area, state);
 			}
-			Some(Popups::Lists) => self.lists.draw(frame, area),
+			Some(Popups::Lists) => self.lists.draw(frame, area, queue),
 			None => {}
 		}
 	}

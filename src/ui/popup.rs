@@ -353,12 +353,12 @@ impl Lists {
 		Lists { state, lists, list }
 	}
 
-	pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
+	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
 		let children = self.list.as_ref().map(|list| list.children());
 		let items = if let Some(ref children) = children {
-			lists_list(children)
+			lists_list(children, queue)
 		} else {
-			root_list(&self.lists)
+			root_list(&self.lists, queue)
 		};
 
 		let block = utils::popup::block().title(" lists ");
@@ -478,18 +478,18 @@ impl Lists {
 	}
 }
 
-fn lists_list(children: &[Child]) -> Vec<ListItem> {
+fn lists_list<'a>(children: &'a [Child], queue: &Queue) -> Vec<ListItem<'a>> {
 	children
 		.iter()
-		.map(|child| child.line())
+		.map(|child| child.line(queue))
 		.map(ListItem::new)
 		.collect()
 }
 
-fn root_list(lists: &[List]) -> Vec<ListItem> {
+fn root_list<'a>(lists: &'a [List], queue: &Queue) -> Vec<ListItem<'a>> {
 	lists
 		.iter()
-		.map(|root| root.line())
+		.map(|root| root.line(queue))
 		.map(ListItem::new)
 		.collect()
 }

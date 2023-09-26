@@ -1,3 +1,4 @@
+use crate::queue::Queue;
 use camino::{Utf8Path, Utf8PathBuf};
 use once_cell::sync::Lazy;
 use ratatui::{
@@ -42,14 +43,48 @@ impl Child {
 		}
 	}
 
-	pub fn line(&self) -> Line {
+	fn contains(&self, other: &Utf8Path) -> bool {
+		other.ancestors().any(|p| self == &p)
+	}
+
+	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.name();
 		match *self {
 			Child::List(_) => {
-				let line = format!("{}/", name);
-				Line::styled(line, Style::default().underlined())
+				let fmt = format!("{}/", name);
+				let style = Style::default().underlined();
+				if let Some(path) = queue.path().map(AsRef::as_ref) {
+					if self == &path {
+						Line::styled(fmt, style.green().bold())
+					} else if self.contains(path) {
+						Line::styled(fmt, style.green())
+					} else {
+						Line::styled(fmt, style)
+					}
+				} else {
+					Line::styled(fmt, style)
+				}
 			}
-			Child::Mp3(_) => Line::from(name),
+			Child::Mp3(ref path) => {
+				if let Some(track) = queue.track() {
+					if track == path {
+						Line::styled(name, Style::default().green().bold())
+					} else {
+						Line::from(name)
+					}
+				} else {
+					Line::from(name)
+				}
+			}
+		}
+	}
+}
+
+impl PartialEq<&Utf8Path> for Child {
+	fn eq(&self, other: &&Utf8Path) -> bool {
+		match *self {
+			Child::List(ref list) => list.eq(other),
+			Child::Mp3(ref path) => path.eq(other),
 		}
 	}
 }
@@ -144,15 +179,31 @@ impl List {
 		children
 	}
 
-	pub fn line(&self) -> Line {
+	fn contains(&self, other: &Utf8Path) -> bool {
+		other.ancestors().any(|p| self == &p)
+	}
+
+	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.path.as_str();
-		Line::from(name)
+
+		let style = Style::default().underlined();
+		if let Some(path) = queue.path() {
+			if self == &path.as_path() {
+				Line::styled(name, style.green().bold())
+			} else if self.contains(path) {
+				Line::styled(name, style.green())
+			} else {
+				Line::styled(name, style)
+			}
+		} else {
+			Line::styled(name, style)
+		}
 	}
 
 	pub fn find(&self, other: &Utf8Path) -> Option<List> {
 		if self == &other {
 			Some(self.clone())
-		} else if other.ancestors().any(|p| self == &p) {
+		} else if self.contains(other) {
 			self.children().into_iter().find_map(|child| match child {
 				Child::List(list) => list.find(other),
 				Child::Mp3(_) => None,
