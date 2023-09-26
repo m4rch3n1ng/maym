@@ -212,8 +212,8 @@ impl Queue {
 	}
 
 	#[inline]
-	pub fn path(&self) -> Option<PathBuf> {
-		self.path.clone()
+	pub fn path(&self) -> Option<&PathBuf> {
+		self.path.as_ref()
 	}
 
 	#[inline]
