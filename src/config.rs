@@ -66,8 +66,14 @@ impl PartialEq<List> for Child {
 impl Ord for Child {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		match (self, other) {
-			(Child::List(l1), Child::List(l2)) => l1.path.cmp(&l2.path),
-			(Child::Mp3(p1), Child::Mp3(p2)) => p1.cmp(p2),
+			(Child::List(l1), Child::List(l2)) => l1
+				.path
+				.as_str()
+				.to_lowercase()
+				.cmp(&l2.path.as_str().to_lowercase()),
+			(Child::Mp3(p1), Child::Mp3(p2)) => {
+				p1.as_str().to_lowercase().cmp(&p2.as_str().to_lowercase())
+			}
 			(&Child::List(_), &Child::Mp3(_)) => std::cmp::Ordering::Less,
 			(&Child::Mp3(_), &Child::List(_)) => std::cmp::Ordering::Greater,
 		}
