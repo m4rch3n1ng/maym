@@ -1,4 +1,4 @@
-use crate::queue::Queue;
+use crate::{queue::Queue, ui::utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use once_cell::sync::Lazy;
 use ratatui::{
@@ -52,23 +52,24 @@ impl Child {
 		match *self {
 			Child::List(_) => {
 				let fmt = format!("{}/", name);
-				let style = Style::default().underlined();
+				let underline = Style::default().underlined();
+				let accent = utils::style::accent().underlined();
 				if let Some(path) = queue.path().map(AsRef::as_ref) {
 					if self == &path {
-						Line::styled(fmt, style.green().bold())
+						Line::styled(fmt, accent.bold())
 					} else if self.contains(path) {
-						Line::styled(fmt, style.green())
+						Line::styled(fmt, accent)
 					} else {
-						Line::styled(fmt, style)
+						Line::styled(fmt, underline)
 					}
 				} else {
-					Line::styled(fmt, style)
+					Line::styled(fmt, underline)
 				}
 			}
 			Child::Mp3(ref path) => {
 				if let Some(track) = queue.track() {
 					if track == path {
-						Line::styled(name, Style::default().green().bold())
+						Line::styled(name, utils::style::accent().bold())
 					} else {
 						Line::from(name)
 					}
@@ -186,17 +187,18 @@ impl List {
 	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.path.as_str();
 
-		let style = Style::default().underlined();
+		let underline = Style::default().underlined();
+		let accent = utils::style::accent().underlined();
 		if let Some(path) = queue.path() {
 			if self == &path.as_path() {
-				Line::styled(name, style.green().bold())
+				Line::styled(name, accent.bold())
 			} else if self.contains(path) {
-				Line::styled(name, style.green())
+				Line::styled(name, accent)
 			} else {
-				Line::styled(name, style)
+				Line::styled(name, underline)
 			}
 		} else {
-			Line::styled(name, style)
+			Line::styled(name, underline)
 		}
 	}
 

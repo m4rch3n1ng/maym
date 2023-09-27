@@ -3,7 +3,7 @@ use crate::{config::Config, player::Player, queue::Queue, state::State};
 use ratatui::{prelude::Rect, Frame};
 
 mod popup;
-mod utils;
+pub mod utils;
 mod window;
 
 #[derive(Debug, Clone, Copy)]

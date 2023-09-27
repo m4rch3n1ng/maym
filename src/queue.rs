@@ -1,12 +1,9 @@
-use crate::{player::Player, state::State};
+use crate::{player::Player, state::State, ui::utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
-use ratatui::{
-	style::{Style, Stylize},
-	text::Line,
-};
+use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
 use thiserror::Error;
@@ -94,7 +91,7 @@ impl Track {
 		let fmt = self.to_string();
 		if let Some(track) = queue.track() {
 			if track == self {
-				Line::styled(fmt, Style::default().green().bold())
+				Line::styled(fmt, utils::style::accent().bold())
 			} else {
 				Line::from(fmt)
 			}

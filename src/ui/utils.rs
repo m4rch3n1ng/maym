@@ -7,6 +7,14 @@ pub fn fmt_duration(duration: Duration) -> String {
 	format!("{:0>2}:{:0>2}", min, sec)
 }
 
+pub mod style {
+	use ratatui::style::{Style, Stylize};
+
+	pub fn accent() -> Style {
+		Style::default().cyan()
+	}
+}
+
 pub mod popup {
 	use ratatui::{
 		prelude::{Constraint, Direction, Layout, Rect},

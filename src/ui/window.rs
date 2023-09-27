@@ -3,7 +3,7 @@ use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	prelude::{Alignment, Constraint, Direction, Layout, Rect},
-	style::{Color, Style, Stylize},
+	style::{Style, Stylize},
 	symbols,
 	text::{Line, Span},
 	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
@@ -111,11 +111,11 @@ fn seek_seek(
 	let gauge = LineGauge::default()
 		.block(block)
 		.label("")
-		.gauge_style(Style::default().fg(if state.paused {
-			Color::Red
+		.gauge_style(if state.paused {
+			utils::style::accent().dim()
 		} else {
-			Color::Green
-		}))
+			utils::style::accent()
+		})
 		.line_set(symbols::line::THICK)
 		.ratio(progress);
 	frame.render_widget(gauge, gauge_area);
@@ -125,7 +125,7 @@ fn seek_info(frame: &mut Frame, state: &State, area: Rect) {
 	let fmt_vol = format!("{: >3}%", state.volume);
 	let (vol_str, vol) = if state.muted {
 		(
-			Span::styled("[mute]", Style::default().yellow()),
+			Span::styled("[mute]", utils::style::accent()),
 			Span::styled(fmt_vol, Style::default().dim()),
 		)
 	} else {
@@ -133,13 +133,13 @@ fn seek_info(frame: &mut Frame, state: &State, area: Rect) {
 	};
 
 	let paused = if state.paused {
-		Span::styled("[pause]", Style::default().red())
+		Span::styled("[stop]", Style::default().dim())
 	} else {
-		Span::styled(" [play]", Style::default().green())
+		Span::styled("[play]", utils::style::accent())
 	};
 
 	let shuffle = if state.shuffle {
-		Span::styled("[shuffle]", Style::default().yellow())
+		Span::styled("[shuffle]", utils::style::accent())
 	} else {
 		Span::styled("[no shuffle]", Style::default().dim())
 	};
