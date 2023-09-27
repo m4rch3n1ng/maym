@@ -1,4 +1,7 @@
-use crate::{queue::Queue, ui::utils};
+use crate::{
+	queue::{Queue, Track},
+	ui::utils,
+};
 use camino::{Utf8Path, Utf8PathBuf};
 use once_cell::sync::Lazy;
 use ratatui::{
@@ -95,6 +98,15 @@ impl PartialEq<List> for Child {
 		match *self {
 			Child::List(ref list) => list.eq(other),
 			Child::Mp3(_) => false,
+		}
+	}
+}
+
+impl PartialEq<Track> for Child {
+	fn eq(&self, other: &Track) -> bool {
+		match *self {
+			Child::List(_) => false,
+			Child::Mp3(ref path) => path.eq(&other.path),
 		}
 	}
 }

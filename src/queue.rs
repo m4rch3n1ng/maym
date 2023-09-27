@@ -24,7 +24,7 @@ pub enum QueueError {
 
 #[derive(Clone)]
 pub struct Track {
-	path: Utf8PathBuf,
+	pub path: Utf8PathBuf,
 	tag: Tag,
 }
 

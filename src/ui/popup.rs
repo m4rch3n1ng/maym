@@ -337,12 +337,12 @@ pub struct Lists {
 	state: ListState,
 	lists: Vec<List>,
 	list: Option<List>,
+	page: Option<usize>,
 }
 
 impl Lists {
 	pub fn new(config: &Config, queue: &Queue) -> Self {
 		let lists = config.lists().to_owned();
-		let state = ListState::default().with_selected(Some(0));
 
 		let list = if let Some(path) = queue.path() {
 			lists.iter().find_map(|list| list.find(path))
@@ -350,7 +350,27 @@ impl Lists {
 			None
 		};
 
-		Lists { state, lists, list }
+		let idx = if let Some(track) = queue.track() {
+			if let Some(ref list) = list {
+				list.children()
+					.iter()
+					.enumerate()
+					.find_map(|(i, child)| (child == track).then_some(i))
+			} else {
+				None
+			}
+		} else {
+			None
+		};
+		let idx = idx.unwrap_or(0);
+		let state = ListState::default().with_selected(Some(idx));
+
+		Lists {
+			state,
+			lists,
+			list,
+			page: None,
+		}
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
@@ -367,6 +387,12 @@ impl Lists {
 
 		frame.render_widget(Clear, area);
 		frame.render_widget(block, area);
+
+		let page = usize::from(list_area.height);
+		if self.page.is_none() {
+			*self.state.offset_mut() = self.len().saturating_sub(page);
+		}
+		self.page = Some(page);
 
 		let line = self
 			.list
@@ -391,6 +417,11 @@ impl Lists {
 		} else {
 			self.lists.len()
 		}
+	}
+
+	fn offset(&self) -> usize {
+		self.page
+			.map_or(usize::MAX, |page| self.len().saturating_sub(page))
 	}
 
 	// todo wrap around
@@ -420,6 +451,12 @@ impl Lists {
 		}
 	}
 
+	fn set(&mut self, list: Option<List>, idx: usize) {
+		self.list = list;
+		self.state.select(Some(idx));
+		*self.state.offset_mut() = self.offset();
+	}
+
 	pub fn right(&mut self) {
 		let curr = self.curr();
 
@@ -427,13 +464,11 @@ impl Lists {
 			ListType::Child(child, _) => {
 				if let Some(list) = child.list() {
 					let list = list.clone();
-					self.list = Some(list);
-					self.state.select(Some(0));
+					self.set(Some(list), 0);
 				}
 			}
 			ListType::List(list) => {
-				self.list = Some(list);
-				self.state.select(Some(0));
+				self.set(Some(list), 0);
 			}
 		}
 	}
@@ -444,14 +479,12 @@ impl Lists {
 				let idx = parent.children().iter().position(|child| child == list);
 				let idx = idx.unwrap_or(0);
 
-				self.list = Some(parent);
-				self.state.select(Some(idx));
+				self.set(Some(parent), idx);
 			} else {
 				let idx = self.lists.iter().position(|root| root == list);
 				let idx = idx.unwrap_or(0);
 
-				self.list = None;
-				self.state.select(Some(idx));
+				self.set(None, idx);
 			}
 		}
 	}
@@ -461,13 +494,12 @@ impl Lists {
 
 		match curr {
 			ListType::List(list) => {
-				self.list = Some(list);
-				self.state.select(Some(0));
+				self.set(Some(list), 0);
 			}
 			ListType::Child(child, parent) => match child {
 				Child::List(list) => {
-					self.list = Some(list.clone());
-					self.state.select(Some(0));
+					let list = list.clone();
+					self.set(Some(list), 0);
 				}
 				Child::Mp3(path) => {
 					queue.queue(&parent.path).unwrap();
