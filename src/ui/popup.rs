@@ -309,6 +309,39 @@ impl Tracks {
 		self.state.select(idx);
 	}
 
+	pub fn page_down(&mut self) {
+		if let Some(page) = self.page {
+			let idx = self
+				.state
+				.selected()
+				.map(|i| usize::min(self.len.saturating_sub(1), i.saturating_add(page)));
+			self.state.select(idx);
+			*self.state.offset_mut() = usize::min(
+				self.len.saturating_sub(page),
+				self.state.offset().saturating_add(page),
+			);
+		}
+	}
+
+	pub fn page_up(&mut self) {
+		if let Some(page) = self.page {
+			let idx = self.state.selected().map(|i| i.saturating_sub(page));
+			self.state.select(idx);
+			*self.state.offset_mut() = self.state.offset().saturating_sub(page);
+		}
+	}
+
+	pub fn home(&mut self) {
+		self.state.select(Some(0));
+		*self.state.offset_mut() = 0;
+	}
+
+	pub fn end(&mut self) {
+		let len = self.len.saturating_sub(1);
+		self.state.select(Some(len));
+		*self.state.offset_mut() = self.offset();
+	}
+
 	pub fn enter(&self, player: &mut Player, queue: &mut Queue) {
 		let idx = self.state.selected().unwrap();
 		queue.select_idx(idx, player).unwrap();
@@ -435,6 +468,39 @@ impl Lists {
 	pub fn up(&mut self) {
 		let prev = self.state.selected().map(|i| i.saturating_sub(1));
 		self.state.select(prev);
+	}
+
+	pub fn page_down(&mut self) {
+		if let Some(page) = self.page {
+			let idx = self
+				.state
+				.selected()
+				.map(|i| usize::min(self.len().saturating_sub(1), i.saturating_add(page)));
+			self.state.select(idx);
+			*self.state.offset_mut() = usize::min(
+				self.len().saturating_sub(page),
+				self.state.offset().saturating_add(page),
+			);
+		}
+	}
+
+	pub fn page_up(&mut self) {
+		if let Some(page) = self.page {
+			let idx = self.state.selected().map(|i| i.saturating_sub(page));
+			self.state.select(idx);
+			*self.state.offset_mut() = self.state.offset().saturating_sub(page);
+		}
+	}
+
+	pub fn home(&mut self) {
+		self.state.select(Some(0));
+		*self.state.offset_mut() = 0;
+	}
+
+	pub fn end(&mut self) {
+		let len = self.len().saturating_sub(1);
+		self.state.select(Some(len));
+		*self.state.offset_mut() = self.offset();
 	}
 
 	fn curr(&self) -> ListType {

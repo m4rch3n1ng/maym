@@ -102,6 +102,10 @@ impl Application {
 						(KeyCode::Char('l'), KeyModifiers::NONE) => self.ui.lists(),
 						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
 						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
+						(KeyCode::PageDown, KeyModifiers::NONE) => self.ui.pg_down(),
+						(KeyCode::PageUp, KeyModifiers::NONE) => self.ui.pg_up(),
+						(KeyCode::Home, KeyModifiers::NONE) => self.ui.home(),
+						(KeyCode::End, KeyModifiers::NONE) => self.ui.end(),
 						// ctx
 						(KeyCode::Enter, KeyModifiers::NONE) => {
 							self.ui.enter(&mut self.player, &mut self.queue);

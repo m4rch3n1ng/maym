@@ -136,6 +136,38 @@ impl Ui {
 		}
 	}
 
+	pub fn pg_up(&mut self) {
+		match self.popup {
+			Some(Popups::Tracks) => self.tracks.page_up(),
+			Some(Popups::Lists) => self.lists.page_up(),
+			_ => {}
+		}
+	}
+
+	pub fn pg_down(&mut self) {
+		match self.popup {
+			Some(Popups::Tracks) => self.tracks.page_down(),
+			Some(Popups::Lists) => self.lists.page_down(),
+			_ => {}
+		}
+	}
+
+	pub fn home(&mut self) {
+		match self.popup {
+			Some(Popups::Tracks) => self.tracks.home(),
+			Some(Popups::Lists) => self.lists.home(),
+			_ => {}
+		}
+	}
+
+	pub fn end(&mut self) {
+		match self.popup {
+			Some(Popups::Tracks) => self.tracks.end(),
+			Some(Popups::Lists) => self.lists.end(),
+			_ => {}
+		}
+	}
+
 	pub fn right(&mut self) {
 		if let Some(Popups::Lists) = self.popup {
 			self.lists.right();
