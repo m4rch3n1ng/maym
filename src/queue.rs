@@ -1,5 +1,6 @@
 use crate::{player::Player, state::State};
 use id3::{Tag, TagLike};
+use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
@@ -20,6 +21,8 @@ pub enum QueueError {
 	NoTracks,
 	#[error("out of bounds {0}")]
 	OutOfBounds(usize),
+	#[error("not a directory {0:?}")]
+	NotADirectory(PathBuf),
 }
 
 #[derive(Clone)]
@@ -39,11 +42,13 @@ impl Serialize for Track {
 
 impl Track {
 	// todo don't use
-	fn new(path: PathBuf) -> Self {
-		assert!(path.exists(), "path {:?} doesn't exist", path);
+	fn new(path: PathBuf) -> Result<Self, QueueError> {
+		if !path.exists() {
+			return Err(QueueError::NoTrack(path));
+		}
 
 		let tag = Tag::read_from_path(&path).unwrap_or_default();
-		Track { path, tag }
+		Ok(Track { path, tag })
 	}
 
 	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Option<Track>, D::Error>
@@ -55,9 +60,11 @@ impl Track {
 		Ok(track)
 	}
 
-	pub fn directory<P: AsRef<Path>>(path: P) -> Vec<Self> {
+	pub fn directory<P: AsRef<Path>>(path: P) -> Result<Vec<Self>, QueueError> {
 		let path = path.as_ref();
-		assert!(path.is_dir(), "path {:?} is not a directiry", path);
+		if !path.is_dir() {
+			return Err(QueueError::NotADirectory(path.to_owned()));
+		}
 
 		let files = fs::read_dir(path).unwrap();
 		let (dirs, files) = files
@@ -66,7 +73,7 @@ impl Track {
 			.map(|entry| entry.path())
 			.partition::<Vec<_>, _>(|path| path.is_dir());
 
-		let recurse_tracks = dirs.into_iter().flat_map(Track::directory);
+		let recurse_tracks = dirs.into_iter().map(Track::directory).flatten_ok();
 		let tracks = files
 			.into_iter()
 			.filter(|path| path.extension().map_or(false, |ext| ext == "mp3"))
@@ -99,12 +106,7 @@ impl Debug for Track {
 impl TryFrom<PathBuf> for Track {
 	type Error = QueueError;
 	fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
-		if path.exists() {
-			let track = Track::new(path);
-			Ok(track)
-		} else {
-			Err(QueueError::NoTrack(path))
-		}
+		Track::new(path)
 	}
 }
 
@@ -175,9 +177,9 @@ pub struct Queue {
 }
 
 impl Queue {
-	pub fn state(state: &State) -> Self {
+	pub fn state(state: &State) -> color_eyre::Result<Self> {
 		let (tracks, path) = if let Some(path) = state.queue.as_deref() {
-			let mut tracks = Track::directory(path);
+			let mut tracks = Track::directory(path)?;
 			tracks.sort();
 
 			(tracks, Some(path.to_owned()))
@@ -198,7 +200,7 @@ impl Queue {
 
 		let rng = rand::thread_rng();
 
-		Queue {
+		let queue = Queue {
 			path,
 			tracks,
 			last,
@@ -206,7 +208,8 @@ impl Queue {
 			current,
 			shuffle,
 			rng,
-		}
+		};
+		Ok(queue)
 	}
 
 	#[inline]

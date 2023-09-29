@@ -11,7 +11,7 @@ const PATH: &str = "/home/may/.config/m4rch/player/status.json";
 #[derive(Debug, Error)]
 #[allow(clippy::enum_variant_names)]
 pub enum StateError {
-	#[error("io errors")]
+	#[error("io error")]
 	IoError(#[from] std::io::Error),
 	#[error("serde error")]
 	SerdeJsonError(#[from] serde_json::Error),

@@ -1,22 +1,19 @@
 use self::{player::Player, state::State};
 use color_eyre::eyre::Context;
-use config::{Config, ConfigError};
+use config::Config;
 use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers},
 	execute, terminal,
 };
-use player::PlayerError;
-use queue::{Queue, QueueError};
+use queue::Queue;
 use ratatui::{
 	prelude::{Backend, CrosstermBackend},
 	Terminal,
 };
-use state::StateError;
 use std::{
 	io,
 	time::{Duration, Instant},
 };
-use thiserror::Error;
 use ui::Ui;
 
 mod config;
@@ -24,21 +21,6 @@ mod player;
 mod queue;
 mod state;
 mod ui;
-
-#[derive(Debug, Error)]
-#[allow(clippy::enum_variant_names)]
-pub enum MayError {
-	#[error("player error")]
-	PlayerError(#[from] PlayerError),
-	#[error("state error")]
-	StateError(#[from] StateError),
-	#[error("config error")]
-	ConfigError(#[from] ConfigError),
-	#[error("queue error")]
-	QueueError(#[from] QueueError),
-	#[error("io error")]
-	IoError(#[from] std::io::Error),
-}
 
 #[derive(Debug)]
 struct Application {
@@ -54,7 +36,7 @@ impl Application {
 	pub fn new() -> color_eyre::Result<Self> {
 		let config = Config::init()?;
 		let state = State::init()?;
-		let queue = Queue::state(&state);
+		let queue = Queue::state(&state)?;
 
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
@@ -74,7 +56,7 @@ impl Application {
 		Ok(app)
 	}
 
-	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), MayError> {
+	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> color_eyre::Result<()> {
 		let mut last = Instant::now();
 		let mut skip_done = false;
 		let mut ticks = 0;
@@ -99,8 +81,7 @@ impl Application {
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
 						// queue
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
-							// todo that error can probably be ignored
-							self.queue.next(&mut self.player).unwrap();
+							let _ = self.queue.next(&mut self.player);
 							skip_done = true;
 						}
 						(KeyCode::Left, KeyModifiers::SHIFT) => {
@@ -137,7 +118,7 @@ impl Application {
 
 				// todo amt
 				if ticks >= 10 {
-					self.state.write().unwrap();
+					self.state.write()?;
 					ticks = 0;
 				} else {
 					ticks += 1;
@@ -146,7 +127,7 @@ impl Application {
 		}
 	}
 
-	pub fn start(&mut self) -> Result<(), MayError> {
+	pub fn start(&mut self) -> color_eyre::Result<()> {
 		let mut stdout = io::stdout();
 
 		terminal::enable_raw_mode()?;
