@@ -14,7 +14,7 @@ use std::{
 	io,
 	time::{Duration, Instant},
 };
-use ui::Ui;
+use ui::{Popups, Ui};
 
 mod config;
 mod player;
@@ -75,7 +75,8 @@ impl Application {
 						// global
 						(KeyCode::Char('q' | 'Q'), _) => return Ok(()),
 						// player
-						(KeyCode::Char(' ' | 'k'), KeyModifiers::NONE) => self.player.toggle(),
+						(KeyCode::Char(' '), KeyModifiers::ALT)
+						| (KeyCode::Char('k'), KeyModifiers::NONE) => self.player.toggle(),
 						(KeyCode::Char('m'), KeyModifiers::NONE) => self.player.mute(),
 						(KeyCode::Up, KeyModifiers::SHIFT) => self.player.i_vol(vol),
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
@@ -106,11 +107,19 @@ impl Application {
 						(KeyCode::PageUp, KeyModifiers::NONE) => self.ui.pg_up(),
 						(KeyCode::Home, KeyModifiers::NONE) => self.ui.home(),
 						(KeyCode::End, KeyModifiers::NONE) => self.ui.end(),
-						// ctx
+						(KeyCode::Backspace, KeyModifiers::NONE) => self.ui.backspace(),
 						(KeyCode::Enter, KeyModifiers::NONE) => {
-							self.ui.enter(&mut self.player, &mut self.queue);
+							self.ui.enter(&mut self.player, &mut self.queue)?;
 							skip_done = true;
 						}
+						// ctx
+						(KeyCode::Char(' '), KeyModifiers::NONE) => match self.ui.popup {
+							Some(Popups::Lists | Popups::Tracks) => {
+								self.ui.space(&mut self.player, &mut self.queue)?;
+								skip_done = true;
+							}
+							_ => self.player.toggle(),
+						},
 						(KeyCode::Right, KeyModifiers::NONE) => {
 							if self.ui.is_popup() {
 								self.ui.right();

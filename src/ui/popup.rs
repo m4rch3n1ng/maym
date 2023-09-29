@@ -2,7 +2,7 @@ use super::utils;
 use crate::{
 	config::{Child, Config, List},
 	player::Player,
-	queue::Queue,
+	queue::{Queue, QueueError},
 	state::State,
 };
 use conv::{ConvUtil, UnwrapOrSaturate};
@@ -342,9 +342,10 @@ impl Tracks {
 		*self.state.offset_mut() = self.offset();
 	}
 
-	pub fn enter(&self, player: &mut Player, queue: &mut Queue) {
+	pub fn enter(&self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let idx = self.state.selected().unwrap();
-		queue.select_idx(idx, player).unwrap();
+		queue.select_idx(idx, player)?;
+		Ok(())
 	}
 }
 
@@ -555,7 +556,7 @@ impl Lists {
 		}
 	}
 
-	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) {
+	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let curr = self.curr();
 
 		match curr {
@@ -568,11 +569,36 @@ impl Lists {
 					self.set(Some(list), 0);
 				}
 				Child::Mp3(path) => {
-					queue.queue(&parent.path).unwrap();
+					queue.queue(&parent.path)?;
 					queue.select_path(&path, player);
 				}
 			},
 		}
+
+		Ok(())
+	}
+
+	pub fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+		let curr = self.curr();
+
+		match curr {
+			ListType::List(list) => {
+				queue.queue(&list.path)?;
+				let _ = queue.next(player);
+			}
+			ListType::Child(child, parent) => match child {
+				Child::List(list) => {
+					queue.queue(&list.path)?;
+					let _ = queue.next(player);
+				}
+				Child::Mp3(track) => {
+					queue.queue(&parent.path)?;
+					queue.select_path(&track, player);
+				}
+			},
+		}
+
+		Ok(())
 	}
 }
 

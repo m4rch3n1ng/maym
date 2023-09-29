@@ -1,5 +1,10 @@
 use self::popup::{Lists, Lyrics, Popup, Tags, Tracks};
-use crate::{config::Config, player::Player, queue::Queue, state::State};
+use crate::{
+	config::Config,
+	player::Player,
+	queue::{Queue, QueueError},
+	state::State,
+};
 use ratatui::{prelude::Rect, Frame};
 
 mod popup;
@@ -20,7 +25,7 @@ pub struct Ui {
 	lyrics: Lyrics,
 	tracks: Tracks,
 	lists: Lists,
-	popup: Option<Popups>,
+	pub popup: Option<Popups>,
 }
 
 impl Ui {
@@ -180,11 +185,25 @@ impl Ui {
 		}
 	}
 
-	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) {
+	pub fn backspace(&mut self) {
+		if let Some(Popups::Lists) = self.popup {
+			self.lists.left();
+		}
+	}
+
+	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		match self.popup {
 			Some(Popups::Tracks) => self.tracks.enter(player, queue),
 			Some(Popups::Lists) => self.lists.enter(player, queue),
-			_ => {}
+			_ => Ok(()),
+		}
+	}
+
+	pub fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+		match self.popup {
+			Some(Popups::Tracks) => self.tracks.enter(player, queue),
+			Some(Popups::Lists) => self.lists.space(player, queue),
+			_ => Ok(()),
 		}
 	}
 
