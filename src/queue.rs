@@ -60,12 +60,19 @@ impl Track {
 		assert!(path.is_dir(), "path {:?} is not a directiry", path);
 
 		let files = fs::read_dir(path).unwrap();
-		files
+		let (dirs, files) = files
 			.into_iter()
 			.flatten()
 			.map(|entry| entry.path())
-			.map(Track::new)
-			.collect::<Vec<_>>()
+			.partition::<Vec<_>, _>(|path| path.is_dir());
+
+		let recurse_tracks = dirs.into_iter().flat_map(Track::directory);
+		let tracks = files
+			.into_iter()
+			.filter(|path| path.extension().map_or(false, |ext| ext == "mp3"))
+			.map(Track::new);
+
+		recurse_tracks.chain(tracks).collect()
 	}
 
 	pub fn as_str(&self) -> &str {
@@ -80,6 +87,7 @@ impl Debug for Track {
 		let mut dbg = f.debug_struct("Track");
 		dbg.field("path", &self.path);
 
+		self.tag.track().map(|track| dbg.field("track", &track));
 		self.tag.title().map(|title| dbg.field("title", &title));
 		self.tag.artist().map(|artist| dbg.field("artist", &artist));
 		self.tag.album().map(|album| dbg.field("album", &album));
@@ -124,6 +132,7 @@ impl PartialEq<PathBuf> for Track {
 
 impl Ord for Track {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		let tracks = self.tag.track().zip(other.tag.track());
 		let titles = self
 			.tag
 			.title()
@@ -140,8 +149,9 @@ impl Ord for Track {
 			.zip(other.tag.album())
 			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
 
-		titles
+		tracks
 			.map_or(Ordering::Equal, |(s, o)| s.cmp(&o))
+			.then_with(|| titles.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
 			.then_with(|| artist.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
 			.then_with(|| albums.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
 	}
