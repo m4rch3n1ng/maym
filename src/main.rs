@@ -76,6 +76,7 @@ impl Application {
 
 	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), MayError> {
 		let mut last = Instant::now();
+		let mut skip_done = false;
 		let mut ticks = 0;
 
 		let seek = self.config.seek();
@@ -100,13 +101,11 @@ impl Application {
 						(KeyCode::Right, KeyModifiers::SHIFT) => {
 							// todo that error can probably be ignored
 							self.queue.next(&mut self.player).unwrap();
-							// todo more sophisticated solution
-							last = Instant::now();
+							skip_done = true;
 						}
 						(KeyCode::Left, KeyModifiers::SHIFT) => {
 							self.queue.last(&mut self.player);
-							// todo more sophisticated solution
-							last = Instant::now();
+							skip_done = true;
 						}
 						(KeyCode::Char('0'), KeyModifiers::NONE) => {
 							self.queue.restart(&mut self.player);
@@ -128,7 +127,11 @@ impl Application {
 
 			if last.elapsed() >= self.tick {
 				self.state.tick(&self.player, &self.queue);
-				self.queue.done(&mut self.player, &self.state);
+				if !skip_done {
+					self.queue.done(&mut self.player, &self.state);
+				} else {
+					skip_done = false;
+				}
 
 				last = Instant::now();
 
