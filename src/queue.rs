@@ -1,35 +1,29 @@
 use crate::{player::Player, state::State};
+use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{
-	cmp::Ordering,
-	collections::VecDeque,
-	fmt::Debug,
-	fs,
-	path::{Path, PathBuf},
-	time::Duration,
-};
+use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fs, time::Duration};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum QueueError {
 	#[error("couldn't find track {0:?}")]
-	NoTrack(PathBuf),
+	NoTrack(Utf8PathBuf),
 	#[error("queue is empty")]
 	NoTracks,
 	#[error("out of bounds {0}")]
 	OutOfBounds(usize),
 	#[error("not a directory {0:?}")]
-	NotADirectory(PathBuf),
+	NotADirectory(Utf8PathBuf),
 	#[error("io error")]
 	IoError(#[from] std::io::Error),
 }
 
 #[derive(Clone)]
 pub struct Track {
-	path: PathBuf,
+	path: Utf8PathBuf,
 	tag: Tag,
 }
 
@@ -43,7 +37,7 @@ impl Serialize for Track {
 }
 
 impl Track {
-	fn new(path: PathBuf) -> Result<Self, QueueError> {
+	fn new(path: Utf8PathBuf) -> Result<Self, QueueError> {
 		if !path.exists() {
 			return Err(QueueError::NoTrack(path));
 		}
@@ -56,23 +50,24 @@ impl Track {
 	where
 		D: Deserializer<'de>,
 	{
-		let path_or: Option<PathBuf> = Deserialize::deserialize(data)?;
+		let path_or: Option<Utf8PathBuf> = Deserialize::deserialize(data)?;
 		let track = path_or.and_then(|path| Track::try_from(path).ok());
 		Ok(track)
 	}
 
-	pub fn directory<P: AsRef<Path>>(path: P) -> Result<Vec<Self>, QueueError> {
+	pub fn directory<P: AsRef<Utf8Path>>(path: P) -> Result<Vec<Self>, QueueError> {
 		let path = path.as_ref();
 		if !path.is_dir() {
 			return Err(QueueError::NotADirectory(path.to_owned()));
 		}
 
 		let files = fs::read_dir(path)?;
-		let (dirs, files) = files
+		let (dirs, files): (Vec<_>, Vec<_>) = files
 			.into_iter()
 			.flatten()
 			.map(|entry| entry.path())
-			.partition::<Vec<_>, _>(|path| path.is_dir());
+			.flat_map(Utf8PathBuf::try_from)
+			.partition(|path| path.is_dir());
 
 		let recurse_tracks = dirs.into_iter().map(Track::directory).flatten_ok();
 		let tracks = files
@@ -84,9 +79,7 @@ impl Track {
 	}
 
 	pub fn as_str(&self) -> &str {
-		self.path
-			.to_str()
-			.unwrap_or_else(|| panic!("invalid utf-8 in {:?}", self.path))
+		self.path.as_str()
 	}
 }
 
@@ -104,9 +97,9 @@ impl Debug for Track {
 	}
 }
 
-impl TryFrom<PathBuf> for Track {
+impl TryFrom<Utf8PathBuf> for Track {
 	type Error = QueueError;
-	fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
+	fn try_from(path: Utf8PathBuf) -> Result<Self, Self::Error> {
 		Track::new(path)
 	}
 }
@@ -114,7 +107,7 @@ impl TryFrom<PathBuf> for Track {
 impl TryFrom<&str> for Track {
 	type Error = QueueError;
 	fn try_from(string: &str) -> Result<Self, Self::Error> {
-		let path = PathBuf::from(string);
+		let path = Utf8PathBuf::from(string);
 		Track::try_from(path)
 	}
 }
@@ -124,12 +117,6 @@ impl Eq for Track {}
 impl PartialEq<Track> for Track {
 	fn eq(&self, other: &Track) -> bool {
 		self.path.eq(&other.path)
-	}
-}
-
-impl PartialEq<PathBuf> for Track {
-	fn eq(&self, other: &PathBuf) -> bool {
-		self.path.eq(other)
 	}
 }
 
@@ -168,7 +155,7 @@ impl PartialOrd for Track {
 
 #[derive(Debug)]
 pub struct Queue {
-	path: Option<PathBuf>,
+	path: Option<Utf8PathBuf>,
 	tracks: Vec<Track>,
 	last: VecDeque<Track>,
 	next: Vec<Track>,
@@ -226,7 +213,7 @@ impl Queue {
 	}
 
 	#[inline]
-	pub fn path(&self) -> Option<&PathBuf> {
+	pub fn path(&self) -> Option<&Utf8PathBuf> {
 		self.path.as_ref()
 	}
 

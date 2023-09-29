@@ -2,18 +2,18 @@ use crate::{
 	player::Player,
 	queue::{Queue, Track},
 };
+use camino::Utf8PathBuf;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::{self, File},
 	io::{BufWriter, Write},
-	path::PathBuf,
 	time::Duration,
 };
 use thiserror::Error;
 
-static PATH: Lazy<PathBuf> =
-	Lazy::new(|| PathBuf::from("/home/may/.config/m4rch/player/status.json"));
+static PATH: Lazy<Utf8PathBuf> =
+	Lazy::new(|| Utf8PathBuf::from("/home/may/.config/m4rch/player/status.json"));
 
 #[derive(Debug, Error)]
 #[allow(clippy::enum_variant_names)]
@@ -42,7 +42,7 @@ pub struct State {
 	#[serde_as(as = "Option<serde_with::DurationSeconds>")]
 	pub duration: Option<Duration>,
 	pub shuffle: bool,
-	pub queue: Option<PathBuf>,
+	pub queue: Option<Utf8PathBuf>,
 	#[serde(deserialize_with = "Track::maybe_deserialize")]
 	pub track: Option<Track>,
 }

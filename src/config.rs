@@ -1,10 +1,11 @@
+use camino::Utf8PathBuf;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, time::Duration};
 use thiserror::Error;
 
-static PATH: Lazy<PathBuf> =
-	Lazy::new(|| PathBuf::from("/home/may/.config/m4rch/player/config.json"));
+static PATH: Lazy<Utf8PathBuf> =
+	Lazy::new(|| Utf8PathBuf::from("/home/may/.config/m4rch/player/config.json"));
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
