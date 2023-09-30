@@ -251,9 +251,34 @@ impl Queue {
 		Ok(track.clone())
 	}
 
-	// todo last for seq
+	fn lst_seq(&mut self) -> Option<Track> {
+		if self.tracks.is_empty() {
+			return None;
+		}
+
+		let len = self.tracks().len();
+		let idx = self.idx();
+		let idx = idx.map(|idx| {
+			if idx == 0 {
+				len.saturating_sub(1)
+			} else {
+				idx.saturating_sub(1)
+			}
+		});
+
+		idx.and_then(|idx| self.get_track(idx).ok())
+	}
+
 	pub fn last(&mut self, player: &mut Player) {
-		if let Some(track) = self.last.pop_back() {
+		let last = if let Some(last) = self.last.pop_back() {
+			Some(last)
+		} else if !self.shuffle {
+			self.lst_seq()
+		} else {
+			None
+		};
+
+		if let Some(track) = last {
 			player.replace(track.as_str());
 
 			if let Some(current) = self.current.replace(track) {
