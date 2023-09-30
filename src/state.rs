@@ -41,10 +41,11 @@ pub struct State {
 }
 
 impl State {
-	pub fn init() -> Result<Self, StateError> {
-		let file = fs::read_to_string(PATH)?;
-		let state = serde_json::from_str(&file)?;
-		Ok(state)
+	pub fn init() -> Self {
+		fs::read_to_string(PATH)
+			.ok()
+			.and_then(|file| serde_json::from_str(&file).ok())
+			.unwrap_or_default()
 	}
 
 	pub fn elapsed_duration(&self) -> Option<(Duration, Duration)> {
@@ -114,7 +115,7 @@ impl Default for State {
 	fn default() -> Self {
 		State {
 			volume: 50,
-			paused: false,
+			paused: true,
 			muted: false,
 			elapsed: None,
 			duration: None,

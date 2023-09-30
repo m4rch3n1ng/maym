@@ -35,7 +35,7 @@ struct Application {
 impl Application {
 	pub fn new() -> color_eyre::Result<Self> {
 		let config = Config::init()?;
-		let state = State::init()?;
+		let state = State::init();
 		let queue = Queue::state(&state)?;
 
 		let mut player = Player::new()?;
