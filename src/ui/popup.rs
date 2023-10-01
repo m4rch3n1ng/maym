@@ -2,7 +2,7 @@ use super::utils;
 use crate::{
 	config::{Child, Config, List},
 	player::Player,
-	queue::{Queue, QueueError},
+	queue::{Queue, QueueError, Track},
 	state::State,
 };
 use conv::{ConvUtil, UnwrapOrSaturate};
@@ -456,6 +456,17 @@ impl Lists {
 	fn offset(&self) -> usize {
 		self.page
 			.map_or(usize::MAX, |page| self.len().saturating_sub(page))
+	}
+
+	pub fn select(&mut self, track: &Track) {
+		if let Some(ref list) = self.list {
+			let children = list.children();
+			let idx = children.iter().position(|child| child == track);
+			let idx = idx.unwrap_or(0);
+
+			self.state.select(Some(idx));
+			*self.state.offset_mut() = self.offset();
+		}
 	}
 
 	// todo wrap around

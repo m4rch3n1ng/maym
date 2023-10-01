@@ -75,12 +75,15 @@ impl Ui {
 		self.tags.reset();
 		self.lyrics.reset();
 
-		match self.popup {
-			Some(Popups::Tracks) => {}
-			_ => {
-				if let Some(idx) = queue.idx() {
-					self.tracks.select(idx);
-				}
+		if !matches!(self.popup, Some(Popups::Tracks)) {
+			if let Some(idx) = queue.idx() {
+				self.tracks.select(idx);
+			}
+		}
+
+		if !matches!(self.popup, Some(Popups::Lists)) {
+			if let Some(track) = queue.track() {
+				self.lists.select(track);
 			}
 		}
 	}
