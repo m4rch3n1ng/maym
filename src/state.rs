@@ -91,8 +91,8 @@ impl State {
 		self.shuffle = queue.is_shuffle();
 		self.queue = queue.path().cloned();
 
-		if self.track.as_ref() != queue.current() {
-			self.track = queue.current().cloned();
+		if self.track.as_ref() != queue.track() {
+			self.track = queue.track().cloned();
 		}
 	}
 

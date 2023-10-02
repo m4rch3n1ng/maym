@@ -235,23 +235,23 @@ impl Queue {
 	}
 
 	#[inline]
-	pub fn current(&self) -> Option<&Track> {
+	pub fn track(&self) -> Option<&Track> {
 		self.current.as_ref()
 	}
 
 	#[inline]
 	pub fn idx(&self) -> Option<usize> {
-		self.current()
+		self.track()
 			.and_then(|track| self.tracks().iter().position(|map| track == map))
 	}
 
 	#[inline]
-	fn get_track(&mut self, idx: usize) -> Result<Track, QueueError> {
+	fn track_by_idx(&mut self, idx: usize) -> Result<Track, QueueError> {
 		let track = self.tracks.get(idx).ok_or(QueueError::OutOfBounds(idx))?;
 		Ok(track.clone())
 	}
 
-	fn lst_seq(&mut self) -> Option<Track> {
+	fn last_track_sequential(&mut self) -> Option<Track> {
 		if self.tracks.is_empty() {
 			return None;
 		}
@@ -266,14 +266,14 @@ impl Queue {
 			}
 		});
 
-		idx.and_then(|idx| self.get_track(idx).ok())
+		idx.and_then(|idx| self.track_by_idx(idx).ok())
 	}
 
 	pub fn last(&mut self, player: &mut Player) {
 		let last = if let Some(last) = self.last.pop_back() {
 			Some(last)
 		} else if !self.shuffle {
-			self.lst_seq()
+			self.last_track_sequential()
 		} else {
 			None
 		};
@@ -287,7 +287,7 @@ impl Queue {
 		}
 	}
 
-	fn nxt_seq(&mut self) -> Result<Track, QueueError> {
+	fn next_track_sequential(&mut self) -> Result<Track, QueueError> {
 		if self.tracks.is_empty() {
 			return Err(QueueError::NoTracks);
 		}
@@ -302,11 +302,11 @@ impl Queue {
 			}
 		});
 
-		self.get_track(idx)
+		self.track_by_idx(idx)
 	}
 
-	fn nxt_shuf(&mut self) -> Result<Track, QueueError> {
-		let track = if let Some(current) = self.current().cloned() {
+	fn next_track_shuffle(&mut self) -> Result<Track, QueueError> {
+		let track = if let Some(current) = self.track().cloned() {
 			self.tracks
 				.iter()
 				.filter(|&track| track != &current)
@@ -319,13 +319,13 @@ impl Queue {
 		Ok(track.clone())
 	}
 
-	fn nxt(&mut self) -> Result<Track, QueueError> {
+	fn next_track(&mut self) -> Result<Track, QueueError> {
 		if let Some(track) = self.next.pop() {
 			Ok(track)
 		} else if self.shuffle {
-			self.nxt_shuf()
+			self.next_track_shuffle()
 		} else {
-			self.nxt_seq()
+			self.next_track_sequential()
 		}
 	}
 
@@ -333,7 +333,7 @@ impl Queue {
 		player.replace(track.as_str());
 		player.pause(false);
 
-		if self.current() != Some(&track) {
+		if self.track() != Some(&track) {
 			if let Some(current) = self.current.replace(track) {
 				self.last.push_back(current);
 
@@ -346,7 +346,7 @@ impl Queue {
 	}
 
 	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
-		let track = self.nxt()?;
+		let track = self.next_track()?;
 		self.replace(track, player);
 
 		Ok(())
@@ -387,7 +387,7 @@ impl Queue {
 	// todo error handling
 	pub fn done(&mut self, player: &mut Player, state: &State) {
 		if state.almost() {
-			let track = self.nxt().unwrap();
+			let track = self.next_track().unwrap();
 
 			self.current = Some(track.clone());
 			player.queue(track.as_str());

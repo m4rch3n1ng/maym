@@ -140,7 +140,7 @@ impl Player {
 			.set_property("mute", state.muted)
 			.map_err(PlayerError::from)?;
 
-		if let Some(track) = queue.current() {
+		if let Some(track) = queue.track() {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
 
