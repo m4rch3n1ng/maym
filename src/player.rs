@@ -159,12 +159,6 @@ impl Player {
 		Ok(())
 	}
 
-	pub fn queue(&mut self, track: &str) {
-		self.0
-			.playlist_load_files(&[(&track, FileState::AppendPlay, None)])
-			.expect("error loading file");
-	}
-
 	pub fn replace(&mut self, track: &str) {
 		self.0
 			.playlist_load_files(&[(&track, FileState::Replace, None)])

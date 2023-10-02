@@ -57,28 +57,9 @@ impl State {
 		self.elapsed
 	}
 
-	pub fn remaining(&self) -> Option<Duration> {
-		self.duration
-			.and_then(|duration| self.elapsed.map(|elapsed| duration.saturating_sub(elapsed)))
-	}
-
 	#[inline]
 	pub fn done(&self) -> bool {
 		!self.paused && self.track.is_some() && self.duration.is_none() && self.elapsed.is_none()
-	}
-
-	pub fn almost(&self) -> bool {
-		if self.paused {
-			return false;
-		}
-
-		let threshold = Duration::from_millis(500);
-
-		if let Some(remaining) = self.remaining() {
-			remaining <= threshold
-		} else {
-			false
-		}
 	}
 
 	pub fn tick(&mut self, player: &Player, queue: &Queue) {

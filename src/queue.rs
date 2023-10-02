@@ -383,18 +383,11 @@ impl Queue {
 		}
 	}
 
-	// todo refactor and shit
-	// todo error handling
-	pub fn done(&mut self, player: &mut Player, state: &State) {
-		if state.almost() {
-			let track = self.next_track().unwrap();
-
-			self.current = Some(track.clone());
-			player.queue(track.as_str());
-		}
-
+	pub fn done(&mut self, player: &mut Player, state: &State) -> color_eyre::Result<()> {
 		if state.done() {
-			self.next(player).unwrap();
+			self.next(player)?;
 		}
+
+		Ok(())
 	}
 }
