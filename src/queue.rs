@@ -23,6 +23,8 @@ pub enum QueueError {
 	OutOfBounds(usize),
 	#[error("not a directory {0:?}")]
 	NotADirectory(PathBuf),
+	#[error("io error")]
+	IoError(#[from] std::io::Error),
 }
 
 #[derive(Clone)]
@@ -41,7 +43,6 @@ impl Serialize for Track {
 }
 
 impl Track {
-	// todo don't use
 	fn new(path: PathBuf) -> Result<Self, QueueError> {
 		if !path.exists() {
 			return Err(QueueError::NoTrack(path));
@@ -66,7 +67,7 @@ impl Track {
 			return Err(QueueError::NotADirectory(path.to_owned()));
 		}
 
-		let files = fs::read_dir(path).unwrap();
+		let files = fs::read_dir(path)?;
 		let (dirs, files) = files
 			.into_iter()
 			.flatten()

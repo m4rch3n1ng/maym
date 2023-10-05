@@ -167,7 +167,9 @@ impl Player {
 
 	pub fn seek(&mut self, position: Duration) {
 		let start = position.as_secs_f64();
-		self.0.set_property("time-pos", start).unwrap();
+		self.0
+			.set_property("time-pos", start)
+			.expect("couldn't set time-pos");
 	}
 
 	pub fn toggle(&mut self) {

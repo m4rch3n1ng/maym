@@ -6,7 +6,7 @@ const PATH: &str = "/home/may/.config/m4rch/player/config.json";
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
-	#[error("io errors")]
+	#[error("io error")]
 	IoError(#[from] std::io::Error),
 	#[error("serde error")]
 	SerdeJsonError(#[from] serde_json::Error),
