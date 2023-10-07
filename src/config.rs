@@ -1,8 +1,10 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{fs, time::Duration};
+use std::{fs, path::PathBuf, time::Duration};
 use thiserror::Error;
 
-const PATH: &str = "/home/may/.config/m4rch/player/config.json";
+static PATH: Lazy<PathBuf> =
+	Lazy::new(|| PathBuf::from("/home/may/.config/m4rch/player/config.json"));
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -22,7 +24,7 @@ pub struct Config {
 
 impl Config {
 	pub fn init() -> Result<Self, ConfigError> {
-		let file = fs::read_to_string(PATH)?;
+		let file = fs::read_to_string(&*PATH)?;
 		let config = serde_json::from_str(&file)?;
 		Ok(config)
 	}

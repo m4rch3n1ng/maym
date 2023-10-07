@@ -2,11 +2,13 @@ use crate::{
 	player::Player,
 	queue::{Queue, Track},
 };
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, time::Duration};
 use thiserror::Error;
 
-const PATH: &str = "/home/may/.config/m4rch/player/status.json";
+static PATH: Lazy<PathBuf> =
+	Lazy::new(|| PathBuf::from("/home/may/.config/m4rch/player/status.json"));
 
 #[derive(Debug, Error)]
 #[allow(clippy::enum_variant_names)]
@@ -42,7 +44,7 @@ pub struct State {
 
 impl State {
 	pub fn init() -> Self {
-		fs::read_to_string(PATH)
+		fs::read_to_string(&*PATH)
 			.ok()
 			.and_then(|file| serde_json::from_str(&file).ok())
 			.unwrap_or_default()
@@ -86,7 +88,7 @@ impl State {
 		let mut serialized = String::from_utf8(buf)?;
 		serialized.push('\n');
 
-		fs::write(PATH, serialized)?;
+		fs::write(&*PATH, serialized)?;
 
 		Ok(())
 	}
