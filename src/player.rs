@@ -161,7 +161,7 @@ impl Player {
 
 	pub fn replace(&mut self, track: &str) {
 		self.0
-			.playlist_load_files(&[(&track, FileState::Replace, None)])
+			.playlist_load_files(&[(track, FileState::Replace, None)])
 			.expect("error loading file");
 	}
 

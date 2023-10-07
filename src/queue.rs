@@ -307,17 +307,22 @@ impl Queue {
 	}
 
 	fn next_track_shuffle(&mut self) -> Result<Track, QueueError> {
-		let track = if let Some(current) = self.track().cloned() {
-			self.tracks
+		if let Some(current) = self.track().cloned() {
+			let track = self
+				.tracks
 				.iter()
 				.filter(|&track| track != &current)
 				.choose(&mut self.rng)
+				.cloned()
+				.unwrap_or(current);
+			Ok(track)
 		} else {
-			self.tracks.iter().choose(&mut self.rng)
-		};
-
-		let track = track.ok_or(QueueError::NoTracks)?;
-		Ok(track.clone())
+			self.tracks
+				.iter()
+				.choose(&mut self.rng)
+				.cloned()
+				.ok_or(QueueError::NoTracks)
+		}
 	}
 
 	fn next_track(&mut self) -> Result<Track, QueueError> {
@@ -369,14 +374,13 @@ impl Queue {
 		}
 	}
 
-	// todo fix loop around at the end
 	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some() {
 			if let Some((elapsed, duration)) = state.elapsed_duration() {
 				let position = elapsed.saturating_add(amt);
 
 				if position >= duration {
-					self.next(player).unwrap();
+					let _ = self.next(player);
 				} else {
 					player.seek(position);
 				}
