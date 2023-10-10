@@ -4,7 +4,12 @@ use crate::{
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, time::Duration};
+use std::{
+	fs::{self, File},
+	io::{BufWriter, Write},
+	path::PathBuf,
+	time::Duration,
+};
 use thiserror::Error;
 
 static PATH: Lazy<PathBuf> =
@@ -80,16 +85,16 @@ impl State {
 	}
 
 	pub fn write(&self) -> Result<(), StateError> {
-		let mut buf = Vec::new();
+		let file = File::create(&*PATH)?;
+		let mut file = BufWriter::new(file);
+
 		let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
-		let mut json_serializer = serde_json::Serializer::with_formatter(&mut buf, formatter);
+		let mut json_serializer = serde_json::Serializer::with_formatter(&mut file, formatter);
 
 		self.serialize(&mut json_serializer)?;
-		let mut serialized = String::from_utf8(buf)?;
-		serialized.push('\n');
+		writeln!(file)?;
 
-		fs::write(&*PATH, serialized)?;
-
+		file.flush()?;
 		Ok(())
 	}
 }
