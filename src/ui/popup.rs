@@ -51,7 +51,7 @@ pub trait Popup {
 		}
 	}
 
-	fn list(&self, state: &State) -> Vec<Line>;
+	fn list<'a>(&self, state: &'a State) -> Vec<Line::<'a>>;
 
 	fn up(&mut self) {
 		if self.do_scroll() {
@@ -92,7 +92,7 @@ impl Tags {
 }
 
 impl Popup for Tags {
-	fn list(&self, state: &State) -> Vec<Line> {
+	fn list<'a>(&self, state: &'a State) -> Vec<Line::<'a>> {
 		let dimmed = Style::default().dim().italic();
 		if let Some(track) = state.track.as_ref() {
 			let underline = Style::default().underlined();
@@ -178,17 +178,13 @@ impl Lyrics {
 }
 
 impl Popup for Lyrics {
-	// todo perf
-	// talking about rust performance when it comes to cloning strings
-	// is incredibly funny when coming from a js background btw
-	fn list(&self, state: &State) -> Vec<Line> {
+	fn list<'a>(&self, state: &'a State) -> Vec<Line::<'a>> {
 		let dimmed = Style::default().dim().italic();
 
 		if let Some(track) = state.track.as_ref() {
-			if let Some(lyrics) = track.lyrics().as_ref() {
+			if let Some(lyrics) = track.lyrics() {
 				lyrics
 					.lines()
-					.map(ToOwned::to_owned)
 					.map(Line::from)
 					.collect()
 			} else {

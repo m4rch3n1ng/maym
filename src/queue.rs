@@ -100,20 +100,20 @@ impl Track {
 		}
 	}
 
-	pub fn title(&self) -> Option<String> {
-		self.tag.title().map(ToOwned::to_owned)
+	pub fn title(&self) -> Option<&str> {
+		self.tag.title()
 	}
 
-	pub fn artist(&self) -> Option<String> {
-		self.tag.artist().map(ToOwned::to_owned)
+	pub fn artist(&self) -> Option<&str> {
+		self.tag.artist()
 	}
 
-	pub fn album(&self) -> Option<String> {
-		self.tag.album().map(ToOwned::to_owned)
+	pub fn album(&self) -> Option<&str> {
+		self.tag.album()
 	}
 
-	pub fn lyrics(&self) -> Option<String> {
-		self.tag.lyrics().next().map(ToString::to_string)
+	pub fn lyrics(&self) -> Option<&str> {
+		self.tag.lyrics().next().map(|lyr| &*lyr.text)
 	}
 }
 
