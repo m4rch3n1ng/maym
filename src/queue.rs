@@ -166,13 +166,14 @@ pub struct Queue {
 
 impl Queue {
 	pub fn state(state: &State) -> color_eyre::Result<Self> {
-		let (tracks, path) = if let Some(path) = state.queue.as_deref() {
-			let mut tracks = Track::directory(path)?;
-			tracks.sort();
+		let (tracks, path) = match state.queue.as_deref() {
+			Some(path) if path.exists() => {
+				let mut tracks = Track::directory(path)?;
+				tracks.sort();
 
-			(tracks, Some(path.to_owned()))
-		} else {
-			(vec![], None)
+				(tracks, Some(path.to_owned()))
+			}
+			_ => (vec![], None),
 		};
 
 		let current = state.track.clone();
