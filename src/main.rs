@@ -1,5 +1,6 @@
 use self::{
 	config::Config,
+	discord::Discord,
 	player::Player,
 	queue::{Queue, QueueError},
 	state::{State, StateError},
@@ -22,6 +23,7 @@ use std::{
 use thiserror::Error;
 
 mod config;
+mod discord;
 mod player;
 mod queue;
 mod state;
@@ -256,6 +258,13 @@ fn install() -> color_eyre::Result<()> {
 
 fn main() -> color_eyre::Result<()> {
 	install()?;
+
+	let mut state = State::init();
+	state.paused = false;
+
+	let mut discord = Discord::new();
+	discord.connect();
+	discord.state(&state);
 
 	let mut app = Application::new().wrap_err("music error")?;
 	app.start().wrap_err("music error")?;
