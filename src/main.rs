@@ -1,3 +1,5 @@
+#[cfg(feature = "discord")]
+use self::discord::Discord;
 use self::{
 	config::Config,
 	player::Player,
@@ -24,6 +26,8 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 mod config;
+#[cfg(feature = "discord")]
+mod discord;
 #[cfg(feature = "mpris")]
 mod mpris;
 mod player;
@@ -53,6 +57,8 @@ struct Application {
 	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
+	#[cfg(feature = "discord")]
+	discord: Discord,
 	#[cfg(feature = "mpris")]
 	mpris: Mpris,
 	tick: Duration,
@@ -66,6 +72,9 @@ impl Application {
 		let state = State::init();
 		let queue = Queue::with_state(&state)?;
 		let player = Player::with_state(&queue, &state);
+
+		#[cfg(feature = "discord")]
+		let discord = Discord::new();
 
 		let ui = Ui::new(&queue, &config);
 
@@ -81,6 +90,8 @@ impl Application {
 			state,
 			queue,
 			ui,
+			#[cfg(feature = "discord")]
+			discord,
 			#[cfg(feature = "mpris")]
 			mpris,
 			tick,
@@ -164,6 +175,10 @@ impl Application {
 				// todo amt
 				if ticks >= 10 {
 					state.write()?;
+
+					#[cfg(feature = "discord")]
+					self.discord.state(state);
+
 					ticks = 0;
 				} else {
 					ticks += 1;
