@@ -51,7 +51,7 @@ pub trait Popup {
 		}
 	}
 
-	fn list<'a>(&self, state: &'a State) -> Vec<Line::<'a>>;
+	fn list<'a>(&self, state: &'a State) -> Vec<Line<'a>>;
 
 	fn up(&mut self) {
 		if self.do_scroll() {
@@ -92,7 +92,7 @@ impl Tags {
 }
 
 impl Popup for Tags {
-	fn list<'a>(&self, state: &'a State) -> Vec<Line::<'a>> {
+	fn list<'a>(&self, state: &'a State) -> Vec<Line<'a>> {
 		let dimmed = Style::default().dim().italic();
 		if let Some(track) = state.track.as_ref() {
 			let underline = Style::default().underlined();
@@ -178,15 +178,12 @@ impl Lyrics {
 }
 
 impl Popup for Lyrics {
-	fn list<'a>(&self, state: &'a State) -> Vec<Line::<'a>> {
+	fn list<'a>(&self, state: &'a State) -> Vec<Line<'a>> {
 		let dimmed = Style::default().dim().italic();
 
 		if let Some(track) = state.track.as_ref() {
 			if let Some(lyrics) = track.lyrics() {
-				lyrics
-					.lines()
-					.map(Line::from)
-					.collect()
+				lyrics.lines().map(Line::from).collect()
 			} else {
 				vec![Line::styled("track has no lyrics", dimmed)]
 			}
