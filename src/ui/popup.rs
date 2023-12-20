@@ -14,71 +14,32 @@ use ratatui::{
 	Frame,
 };
 
-pub trait Popup {
-	fn reset(&mut self) {
-		self.set_pos(0);
-	}
-
-	fn pos(&self) -> u16;
-
-	fn set_pos(&mut self, amt: u16);
-
-	fn set_scroll_amt(&mut self, amt: u16);
-
-	fn scroll_amt(&self) -> u16;
-
-	fn do_scroll(&self) -> bool;
-
-	fn set_do_scroll(&mut self, val: bool);
-
-	fn update_scroll(&mut self, area: Rect, state: &State) {
-		let list = self.list(state);
-
-		let lines = list.len().approx_as::<u16>().unwrap_or_saturate();
-		let height = utils::popup::block().inner(area).height;
-
-		let n_scroll_max = lines.saturating_sub(height);
-		if n_scroll_max != self.scroll_amt() {
-			self.set_pos(0);
-			self.set_scroll_amt(n_scroll_max);
-		}
-
-		if lines > height && !self.do_scroll() {
-			self.set_do_scroll(true);
-		} else if lines <= height && self.do_scroll() {
-			self.set_pos(0);
-			self.set_do_scroll(false);
-		}
-	}
-
-	fn list<'a>(&self, state: &'a State) -> Vec<Line<'a>>;
-
-	fn up(&mut self) {
-		if self.do_scroll() {
-			let pos = self.pos().saturating_sub(1);
-			self.set_pos(pos);
-		}
-	}
-
-	fn down(&mut self) {
-		if self.do_scroll() {
-			let pos = u16::min(self.scroll_amt(), self.pos() + 1);
-			self.set_pos(pos);
-		}
-	}
-}
-
-#[derive(Debug, Default)]
-pub struct Tags {
+#[derive(Debug)]
+pub struct Popup<T: PopupTrait> {
+	inner: T,
 	pos: u16,
 	scroll_amt: u16,
 	do_scroll: bool,
 }
 
-impl Tags {
-	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let block = utils::popup::block().title(" tags ");
-		let list = self.list(state);
+impl<T: PopupTrait + Default> Default for Popup<T> {
+	fn default() -> Self {
+		Popup {
+			inner: T::default(),
+			pos: 0,
+			scroll_amt: 0,
+			do_scroll: false,
+		}
+	}
+}
+
+impl<T: PopupTrait> Popup<T> {
+	pub fn draw(&mut self, frame: &mut Frame, area: Rect, state: &State) {
+		self.update_scroll(area, state);
+
+		let title = self.inner.title();
+		let block = utils::popup::block().title(title);
+		let list = self.inner.list(state);
 
 		let par = if self.do_scroll {
 			Paragraph::new(list).block(block).scroll((self.pos, 0))
@@ -89,10 +50,80 @@ impl Tags {
 		frame.render_widget(Clear, area);
 		frame.render_widget(par, area);
 	}
+
+	fn update_scroll(&mut self, area: Rect, state: &State) {
+		let list = self.inner.list(state);
+
+		let lines = list.len().approx_as::<u16>().unwrap_or_saturate();
+		let height = utils::popup::block().inner(area).height;
+
+		let n_scroll_max = lines.saturating_sub(height);
+		if n_scroll_max != self.scroll_amt {
+			self.pos = 0;
+			self.scroll_amt = n_scroll_max;
+		}
+
+		if lines > height && !self.do_scroll {
+			self.do_scroll = true;
+		} else if lines <= height && self.do_scroll {
+			self.pos = 0;
+			self.do_scroll = false;
+		}
+	}
+
+	pub fn reset(&mut self) {
+		self.pos = 0;
+	}
+
+	pub fn up(&mut self) {
+		if self.do_scroll {
+			let pos = self.pos.saturating_sub(1);
+			self.pos = pos;
+		}
+	}
+
+	pub fn down(&mut self) {
+		if self.do_scroll {
+			let pos = u16::min(self.scroll_amt, self.pos + 1);
+			self.pos = pos;
+		}
+	}
 }
 
-impl Popup for Tags {
-	fn list<'a>(&self, state: &'a State) -> Vec<Line<'a>> {
+pub trait PopupTrait {
+	fn list<'s>(&self, state: &'s State) -> Vec<Line<'s>>;
+
+	fn title(&self) -> &'static str;
+}
+
+#[derive(Debug, Default)]
+pub struct Lyrics;
+
+impl PopupTrait for Lyrics {
+	fn list<'s>(&self, state: &'s State) -> Vec<Line<'s>> {
+		let dimmed = Style::default().dim().italic();
+
+		if let Some(track) = state.track.as_ref() {
+			if let Some(lyrics) = track.lyrics() {
+				lyrics.lines().map(Line::from).collect()
+			} else {
+				vec![Line::styled("track has no lyrics", dimmed)]
+			}
+		} else {
+			vec![Line::styled("no track playing", dimmed)]
+		}
+	}
+
+	fn title(&self) -> &'static str {
+		" lyrics "
+	}
+}
+
+#[derive(Debug, Default)]
+pub struct Tags;
+
+impl PopupTrait for Tags {
+	fn list<'s>(&self, state: &'s State) -> Vec<Line<'s>> {
 		let dimmed = Style::default().dim().italic();
 		if let Some(track) = state.track.as_ref() {
 			let underline = Style::default().underlined();
@@ -128,92 +159,8 @@ impl Popup for Tags {
 		}
 	}
 
-	fn do_scroll(&self) -> bool {
-		self.do_scroll
-	}
-
-	fn pos(&self) -> u16 {
-		self.pos
-	}
-
-	fn scroll_amt(&self) -> u16 {
-		self.scroll_amt
-	}
-
-	fn set_do_scroll(&mut self, val: bool) {
-		self.do_scroll = val;
-	}
-
-	fn set_pos(&mut self, amt: u16) {
-		self.pos = amt;
-	}
-
-	fn set_scroll_amt(&mut self, amt: u16) {
-		self.scroll_amt = amt;
-	}
-}
-
-#[derive(Debug, Default)]
-pub struct Lyrics {
-	pos: u16,
-	do_scroll: bool,
-	scroll_amt: u16,
-}
-
-impl Lyrics {
-	pub fn draw(&self, frame: &mut Frame, area: Rect, state: &State) {
-		let block = utils::popup::block().title(" lyrics ");
-		let list = self.list(state);
-
-		// wrap depends on https://github.com/ratatui-org/ratatui/issues/136
-		let par = if self.do_scroll {
-			Paragraph::new(list).block(block).scroll((self.pos, 0))
-		} else {
-			Paragraph::new(list).block(block)
-		};
-
-		frame.render_widget(Clear, area);
-		frame.render_widget(par, area);
-	}
-}
-
-impl Popup for Lyrics {
-	fn list<'a>(&self, state: &'a State) -> Vec<Line<'a>> {
-		let dimmed = Style::default().dim().italic();
-
-		if let Some(track) = state.track.as_ref() {
-			if let Some(lyrics) = track.lyrics() {
-				lyrics.lines().map(Line::from).collect()
-			} else {
-				vec![Line::styled("track has no lyrics", dimmed)]
-			}
-		} else {
-			vec![Line::styled("no track playing", dimmed)]
-		}
-	}
-
-	fn do_scroll(&self) -> bool {
-		self.do_scroll
-	}
-
-	fn pos(&self) -> u16 {
-		self.pos
-	}
-
-	fn scroll_amt(&self) -> u16 {
-		self.scroll_amt
-	}
-
-	fn set_do_scroll(&mut self, val: bool) {
-		self.do_scroll = val;
-	}
-
-	fn set_pos(&mut self, amt: u16) {
-		self.pos = amt;
-	}
-
-	fn set_scroll_amt(&mut self, amt: u16) {
-		self.scroll_amt = amt;
+	fn title(&self) -> &'static str {
+		" tags "
 	}
 }
 
@@ -239,8 +186,6 @@ impl Tracks {
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
-		let items = tracks_list(queue);
-
 		let block = utils::popup::block().title(" tracks ");
 		let inner = block.inner(area);
 		let (title_area, list_area) = utils::popup::double_layout(inner);
@@ -262,12 +207,23 @@ impl Tracks {
 		let title = Paragraph::new(line).block(Block::default());
 		frame.render_widget(title, title_area);
 
+		let items = self.items(queue);
 		let list = ListWidget::new(items)
 			.block(Block::default())
 			.style(Style::default().dim())
 			.highlight_style(Style::default().remove_modifier(Modifier::DIM));
 
 		frame.render_stateful_widget(list, list_area, &mut self.state);
+	}
+
+	fn items<'q>(&self, queue: &'q Queue) -> Vec<ListItem<'q>> {
+		queue
+			.tracks()
+			.iter()
+			.map(|track| track.line(queue))
+			.map(Line::from)
+			.map(ListItem::new)
+			.collect()
 	}
 
 	fn offset(&self) -> usize {
@@ -287,7 +243,6 @@ impl Tracks {
 		*self.state.offset_mut() = offset;
 	}
 
-	// todo wrap around ?
 	pub fn down(&mut self) {
 		let idx = self
 			.state
@@ -296,7 +251,6 @@ impl Tracks {
 		self.state.select(idx);
 	}
 
-	// todo wrap around ?
 	pub fn up(&mut self) {
 		let idx = self.state.selected().map(|i| i.saturating_sub(1));
 		self.state.select(idx);
@@ -336,21 +290,10 @@ impl Tracks {
 	}
 
 	pub fn enter(&self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
-		let idx = self.state.selected().unwrap();
+		let idx = self.state.selected().expect("state should always be Some");
 		queue.select_idx(idx, player)?;
 		Ok(())
 	}
-}
-
-// todo associated fn perhaps
-fn tracks_list(queue: &Queue) -> Vec<ListItem> {
-	queue
-		.tracks()
-		.iter()
-		.map(|track| track.line(queue))
-		.map(Line::from)
-		.map(ListItem::new)
-		.collect()
 }
 
 #[derive(Debug)]
@@ -462,17 +405,18 @@ impl Lists {
 		}
 	}
 
-	// todo wrap around
 	pub fn down(&mut self) {
 		let len = self.len();
-		let next = self.state.selected().map(|i| usize::min(len - 1, i + 1));
-		self.state.select(next);
+		let idx = self
+			.state
+			.selected()
+			.map(|i| usize::min(len.saturating_sub(1), i.saturating_add(1)));
+		self.state.select(idx);
 	}
 
-	// todo wrap around
 	pub fn up(&mut self) {
-		let prev = self.state.selected().map(|i| i.saturating_sub(1));
-		self.state.select(prev);
+		let idx = self.state.selected().map(|i| i.saturating_sub(1));
+		self.state.select(idx);
 	}
 
 	pub fn page_down(&mut self) {

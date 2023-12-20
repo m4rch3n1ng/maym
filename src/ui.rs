@@ -21,8 +21,8 @@ pub enum Popups {
 
 #[derive(Debug)]
 pub struct Ui {
-	tags: Tags,
-	lyrics: Lyrics,
+	tags: Popup<Tags>,
+	lyrics: Popup<Lyrics>,
 	tracks: Tracks,
 	lists: Lists,
 	pub popup: Option<Popups>,
@@ -31,8 +31,8 @@ pub struct Ui {
 impl Ui {
 	pub fn new(queue: &Queue, config: &Config) -> Self {
 		Ui {
-			tags: Tags::default(),
-			lyrics: Lyrics::default(),
+			tags: Popup::<Tags>::default(),
+			lyrics: Popup::<Lyrics>::default(),
 			tracks: Tracks::new(queue),
 			lists: Lists::new(config, queue),
 			popup: None,
@@ -53,15 +53,9 @@ impl Ui {
 	fn popup(&mut self, frame: &mut Frame, main: Rect, state: &State, queue: &Queue) {
 		let area = window::popup(main);
 		match self.popup {
-			Some(Popups::Tags) => {
-				self.tags.update_scroll(area, state);
-				self.tags.draw(frame, area, state);
-			}
+			Some(Popups::Tags) => self.tags.draw(frame, area, state),
+			Some(Popups::Lyrics) => self.lyrics.draw(frame, area, state),
 			Some(Popups::Tracks) => self.tracks.draw(frame, area, queue),
-			Some(Popups::Lyrics) => {
-				self.lyrics.update_scroll(area, state);
-				self.lyrics.draw(frame, area, state);
-			}
 			Some(Popups::Lists) => self.lists.draw(frame, area, queue),
 			None => {}
 		}
