@@ -131,18 +131,16 @@ impl Debug for Track {
 	}
 }
 
-// todo perhaps album
-// todo "no title", "no artist"
 impl Display for Track {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let track = self
-			.tag
-			.track()
-			.map_or(String::new(), |track| format!("{:#02} ", track));
-		let title = self.tag.title().unwrap_or("");
-		let artist = self.tag.artist().unwrap_or("");
+		if let Some(track) = self.tag.track() {
+			write!(f, "{:#02} ", track)?;
+		}
 
-		write!(f, "{}{} ~ {}", track, title, artist)
+		let title = self.tag.title().unwrap_or("no title");
+		let artist = self.tag.artist().unwrap_or("no artist");
+
+		write!(f, "{} ~ {}", title, artist)
 	}
 }
 
@@ -175,8 +173,8 @@ impl PartialEq<Utf8PathBuf> for Track {
 	}
 }
 
-impl PartialEq<&Utf8Path> for Track {
-	fn eq(&self, other: &&Utf8Path) -> bool {
+impl PartialEq<Utf8Path> for Track {
+	fn eq(&self, other: &Utf8Path) -> bool {
 		self.path.eq(other)
 	}
 }
@@ -318,7 +316,7 @@ impl Queue {
 	}
 
 	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) {
-		let track = self.tracks.iter().find(|&iter| iter == &path).unwrap();
+		let track = self.tracks.iter().find(|&iter| iter == path).unwrap();
 		let track = track.clone();
 
 		self.next.clear();
