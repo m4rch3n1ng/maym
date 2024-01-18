@@ -25,6 +25,9 @@ pub enum ConfigError {
 	ListDoesntExist(Utf8PathBuf),
 }
 
+/// [`Child`] struct of [`List`]
+///
+/// created via [`List::children`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Child {
 	List(List),
@@ -32,6 +35,7 @@ pub enum Child {
 }
 
 impl Child {
+	/// return name of child
 	fn name(&self) -> &str {
 		match *self {
 			Child::List(ref list) => list.path.file_name().unwrap(),
@@ -39,6 +43,7 @@ impl Child {
 		}
 	}
 
+	/// returns list if child is [`Child::List`].
 	pub fn list(&self) -> Option<&List> {
 		match self {
 			Child::List(list) => Some(list),
@@ -46,19 +51,23 @@ impl Child {
 		}
 	}
 
+	/// check if [`Child::List`] contains path, or if [`Child::Mp3`] is path
 	fn contains(&self, other: &Utf8Path) -> bool {
-		other.ancestors().any(|p| self == &p)
+		match &self {
+			Child::List(list) => other.ancestors().any(|p| list == &p),
+			Child::Mp3(path) => path == other,
+		}
 	}
 
 	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.name();
 		match *self {
-			Child::List(_) => {
+			Child::List(ref list) => {
 				let fmt = format!("{}/", name);
 				let underline = Style::default().underlined();
 				let accent = utils::style::accent().underlined();
 				if let Some(path) = queue.path().map(AsRef::as_ref) {
-					if self == &path {
+					if list == &path {
 						Line::styled(fmt, accent.bold())
 					} else if self.contains(path) {
 						Line::styled(fmt, accent)
@@ -80,15 +89,6 @@ impl Child {
 					Line::from(name)
 				}
 			}
-		}
-	}
-}
-
-impl PartialEq<&Utf8Path> for Child {
-	fn eq(&self, other: &&Utf8Path) -> bool {
-		match *self {
-			Child::List(ref list) => list.eq(other),
-			Child::Mp3(ref path) => path.eq(other),
 		}
 	}
 }
@@ -134,6 +134,7 @@ impl PartialOrd for Child {
 	}
 }
 
+/// struct that represents a directory
 #[derive(Debug, Clone)]
 pub struct List {
 	pub path: Utf8PathBuf,
@@ -141,7 +142,8 @@ pub struct List {
 }
 
 impl List {
-	fn path(path: Utf8PathBuf) -> Result<Self, ConfigError> {
+	/// create [`List`] without parent.
+	fn new(path: Utf8PathBuf) -> Result<Self, ConfigError> {
 		if path.exists() {
 			let list = List { path, parent: None };
 			Ok(list)
@@ -150,8 +152,10 @@ impl List {
 		}
 	}
 
-	pub fn with_parent(path: Utf8PathBuf, parent: Rc<List>) -> Result<Self, ConfigError> {
+	/// create [`List`] struct with parent node
+	pub fn with_parent(path: Utf8PathBuf, parent: List) -> Result<Self, ConfigError> {
 		if path.exists() {
+			let parent = Rc::new(parent);
 			let list = List {
 				path,
 				parent: Some(parent),
@@ -162,11 +166,13 @@ impl List {
 		}
 	}
 
+	/// extract parent from [`List`], if list has parent
 	pub fn parent(&self) -> Option<List> {
 		self.parent.as_ref().map(|rc| (**rc).clone())
 	}
 
 	// todo error handling
+	/// reads files in [`List`] and returns a vec of [`Child`] structs
 	pub fn children(&self) -> Vec<Child> {
 		let read = fs::read_dir(&self.path).unwrap();
 		let mut children = read
@@ -176,8 +182,7 @@ impl List {
 			.flat_map(Utf8PathBuf::try_from)
 			.filter_map(|path| {
 				if path.is_dir() {
-					let parent = Rc::new(self.clone());
-					let list = List::with_parent(path, parent).unwrap();
+					let list = List::with_parent(path, self.clone()).unwrap();
 					let child = Child::List(list);
 					Some(child)
 				} else if path.extension().map_or(false, |ext| ext == "mp3") {
@@ -192,10 +197,12 @@ impl List {
 		children
 	}
 
+	/// check if [`List`] contains path
 	fn contains(&self, other: &Utf8Path) -> bool {
 		other.ancestors().any(|p| self == &p)
 	}
 
+	/// format [`List`] into [`Line`] struct for ratatui
 	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.path.as_str();
 
@@ -214,6 +221,7 @@ impl List {
 		}
 	}
 
+	/// if [`List`] contains path, searches recursively until it finds the matching path
 	pub fn find(&self, other: &Utf8Path) -> Option<List> {
 		if self == &other {
 			Some(self.clone())
@@ -242,18 +250,6 @@ impl PartialEq<&Utf8Path> for List {
 	}
 }
 
-impl TryFrom<Utf8PathBuf> for List {
-	type Error = ConfigError;
-	fn try_from(path: Utf8PathBuf) -> Result<Self, Self::Error> {
-		if path.exists() {
-			let list = List { path, parent: None };
-			Ok(list)
-		} else {
-			Err(ConfigError::ListDoesntExist(path))
-		}
-	}
-}
-
 impl Serialize for List {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -269,7 +265,7 @@ impl List {
 		D: Deserializer<'de>,
 	{
 		let lists_or: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data)?;
-		let track = lists_or.map(|lists| lists.into_iter().flat_map(List::path).collect());
+		let track = lists_or.map(|lists| lists.into_iter().flat_map(List::new).collect());
 		Ok(track)
 	}
 }
@@ -306,5 +302,83 @@ impl Config {
 	#[inline]
 	pub fn vol(&self) -> u64 {
 		self.vol.unwrap_or(5)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::{Child, List};
+	use camino::Utf8PathBuf;
+
+	fn list<P: Into<Utf8PathBuf>>(path: P) -> List {
+		let path = path.into();
+		List { path, parent: None }
+	}
+
+	fn child<P: Into<Utf8PathBuf>>(path: P) -> Child {
+		let list = list(path);
+		Child::List(list)
+	}
+
+	fn mp3<P: Into<Utf8PathBuf>>(path: P) -> Child {
+		let path = path.into();
+		Child::Mp3(path)
+	}
+
+	#[test]
+	fn list_contains() {
+		let mock = list("/path/test");
+
+		let one = mock.contains("/path/test".into());
+		assert!(one);
+
+		let two = mock.contains("/path/test/other".into());
+		assert!(two);
+
+		let thr = mock.contains("/path/test/other/".into());
+		assert!(thr);
+
+		let fou = mock.contains("/path/test/other/more".into());
+		assert!(fou);
+
+		let fiv = mock.contains("/path".into());
+		assert!(!fiv);
+
+		let six = mock.contains("/test".into());
+		assert!(!six)
+	}
+
+	#[test]
+	fn child_list_contains() {
+		let list = child("/list/test");
+
+		let one = list.contains("/list/test".into());
+		assert!(one);
+
+		let two = list.contains("/list/test/other".into());
+		assert!(two);
+
+		let thr = list.contains("/list".into());
+		assert!(!thr);
+
+		let fou = list.contains("/test".into());
+		assert!(!fou);
+	}
+
+	#[test]
+	fn child_mp3_contains() {
+		let mp3 = mp3("/mp3/test");
+
+		let one = mp3.contains("/mp3/test".into());
+		assert!(one);
+
+		let two = mp3.contains("/mp3/test/other".into());
+		assert!(!two);
+
+		let thr = mp3.contains("/mp3".into());
+		assert!(!thr);
+
+		let fou = mp3.contains("/mp4".into());
+		assert!(!fou);
 	}
 }
