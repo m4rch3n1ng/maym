@@ -2,7 +2,7 @@ use self::{player::Player, state::State};
 use color_eyre::eyre::Context;
 use config::Config;
 use crossterm::{
-	event::{self, Event, KeyCode, KeyModifiers},
+	event::{self, Event, KeyCode, KeyModifiers, MouseEventKind},
 	execute, terminal,
 };
 use queue::Queue;
@@ -14,7 +14,7 @@ use std::{
 	io,
 	time::{Duration, Instant},
 };
-use ui::Ui;
+use ui::{Popups, Ui};
 
 mod config;
 mod player;
@@ -41,7 +41,7 @@ impl Application {
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
 
-		let ui = Ui::default();
+		let ui = Ui::new(&queue, &config);
 
 		let tick = Duration::from_millis(100);
 
@@ -65,17 +65,18 @@ impl Application {
 		let vol = self.config.vol();
 
 		loop {
-			terminal.draw(|f| self.ui.draw(f, &self.state))?;
+			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout)? {
 				// todo check if press
-				if let Event::Key(key) = event::read()? {
-					match (key.code, key.modifiers) {
+				match event::read()? {
+					Event::Key(key) => match (key.code, key.modifiers) {
 						// global
 						(KeyCode::Char('q' | 'Q'), _) => return Ok(()),
 						// player
-						(KeyCode::Char(' ' | 'k'), KeyModifiers::NONE) => self.player.toggle(),
+						(KeyCode::Char(' '), KeyModifiers::ALT)
+						| (KeyCode::Char('k'), KeyModifiers::NONE) => self.player.toggle(),
 						(KeyCode::Char('m'), KeyModifiers::NONE) => self.player.mute(),
 						(KeyCode::Up, KeyModifiers::SHIFT) => self.player.i_vol(vol),
 						(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
@@ -91,23 +92,62 @@ impl Application {
 						(KeyCode::Char('0'), KeyModifiers::NONE) => {
 							self.queue.restart(&mut self.player);
 						}
-						(KeyCode::Left, KeyModifiers::NONE) => {
-							self.queue.seek_d(&mut self.player, &self.state, seek);
-						}
-						(KeyCode::Right, KeyModifiers::NONE) => {
-							self.queue.seek_i(&mut self.player, &self.state, seek);
-						}
 						(KeyCode::Char('s'), KeyModifiers::NONE) => {
 							self.queue.shuffle();
 						}
+						// ui
+						(KeyCode::Esc, KeyModifiers::NONE) => self.ui.esc(),
+						(KeyCode::Char('i'), KeyModifiers::NONE) => self.ui.tags(),
+						(KeyCode::Char('y'), KeyModifiers::NONE) => self.ui.lyrics(),
+						(KeyCode::Char('t'), KeyModifiers::NONE) => self.ui.tracks(),
+						(KeyCode::Char('l'), KeyModifiers::NONE) => self.ui.lists(),
+						(KeyCode::Down, KeyModifiers::NONE) => self.ui.down(),
+						(KeyCode::Up, KeyModifiers::NONE) => self.ui.up(),
+						(KeyCode::PageDown, KeyModifiers::NONE) => self.ui.pg_down(),
+						(KeyCode::PageUp, KeyModifiers::NONE) => self.ui.pg_up(),
+						(KeyCode::Home, KeyModifiers::NONE) => self.ui.home(),
+						(KeyCode::End, KeyModifiers::NONE) => self.ui.end(),
+						(KeyCode::Backspace, KeyModifiers::NONE) => self.ui.backspace(),
+						(KeyCode::Enter, KeyModifiers::NONE) => {
+							self.ui.enter(&mut self.player, &mut self.queue)?;
+							skip_done = true;
+						}
+						// ctx
+						(KeyCode::Char(' '), KeyModifiers::NONE) => match self.ui.popup {
+							Some(Popups::Lists | Popups::Tracks) => {
+								self.ui.space(&mut self.player, &mut self.queue)?;
+								skip_done = true;
+							}
+							_ => self.player.toggle(),
+						},
+						(KeyCode::Right, KeyModifiers::NONE) => {
+							if self.ui.is_popup() {
+								self.ui.right();
+							} else {
+								self.queue.seek_i(&mut self.player, &self.state, seek);
+							}
+						}
+						(KeyCode::Left, KeyModifiers::NONE) => {
+							if self.ui.is_popup() {
+								self.ui.left();
+							} else {
+								self.queue.seek_d(&mut self.player, &self.state, seek);
+							}
+						}
 						// ignore
 						_ => {}
-					}
+					},
+					Event::Mouse(mouse) => match mouse.kind {
+						MouseEventKind::ScrollDown => self.ui.down(),
+						MouseEventKind::ScrollUp => self.ui.up(),
+						_ => {}
+					},
+					_ => {}
 				}
 			}
 
 			if last.elapsed() >= self.tick {
-				self.state.tick(&self.player, &self.queue);
+				self.state.tick(&self.player, &self.queue, &mut self.ui);
 				if !skip_done {
 					self.queue.done(&mut self.player, &self.state)?;
 				} else {

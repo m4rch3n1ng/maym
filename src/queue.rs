@@ -1,10 +1,11 @@
-use crate::{player::Player, state::State};
+use crate::{player::Player, state::State, ui::utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fs, time::Duration};
+use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,7 +24,7 @@ pub enum QueueError {
 
 #[derive(Clone)]
 pub struct Track {
-	path: Utf8PathBuf,
+	pub path: Utf8PathBuf,
 	tag: Tag,
 }
 
@@ -81,6 +82,39 @@ impl Track {
 	pub fn as_str(&self) -> &str {
 		self.path.as_str()
 	}
+
+	pub fn track(&self) -> Option<u32> {
+		self.tag.track()
+	}
+
+	pub fn line(&self, queue: &Queue) -> Line {
+		let fmt = self.to_string();
+		if let Some(track) = queue.track() {
+			if track == self {
+				Line::styled(fmt, utils::style::accent().bold())
+			} else {
+				Line::from(fmt)
+			}
+		} else {
+			Line::from(fmt)
+		}
+	}
+
+	pub fn title(&self) -> Option<&str> {
+		self.tag.title()
+	}
+
+	pub fn artist(&self) -> Option<&str> {
+		self.tag.artist()
+	}
+
+	pub fn album(&self) -> Option<&str> {
+		self.tag.album()
+	}
+
+	pub fn lyrics(&self) -> Option<&str> {
+		self.tag.lyrics().next().map(|lyr| &*lyr.text)
+	}
 }
 
 impl Debug for Track {
@@ -94,6 +128,19 @@ impl Debug for Track {
 		self.tag.album().map(|album| dbg.field("album", &album));
 
 		dbg.finish()
+	}
+}
+
+impl Display for Track {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		if let Some(track) = self.tag.track() {
+			write!(f, "{:#02} ", track)?;
+		}
+
+		let title = self.tag.title().unwrap_or("no title");
+		let artist = self.tag.artist().unwrap_or("no artist");
+
+		write!(f, "{} ~ {}", title, artist)
 	}
 }
 
@@ -117,6 +164,18 @@ impl Eq for Track {}
 impl PartialEq<Track> for Track {
 	fn eq(&self, other: &Track) -> bool {
 		self.path.eq(&other.path)
+	}
+}
+
+impl PartialEq<Utf8PathBuf> for Track {
+	fn eq(&self, other: &Utf8PathBuf) -> bool {
+		self.path.eq(other)
+	}
+}
+
+impl PartialEq<Utf8Path> for Track {
+	fn eq(&self, other: &Utf8Path) -> bool {
+		self.path.eq(other)
 	}
 }
 
@@ -238,6 +297,42 @@ impl Queue {
 	fn track_by_idx(&mut self, idx: usize) -> Result<Track, QueueError> {
 		let track = self.tracks.get(idx).ok_or(QueueError::OutOfBounds(idx))?;
 		Ok(track.clone())
+	}
+
+	pub fn queue<P: AsRef<Utf8Path> + Into<Utf8PathBuf>>(
+		&mut self,
+		path: P,
+	) -> Result<(), QueueError> {
+		let mut tracks = Track::directory(&path)?;
+		tracks.sort();
+
+		self.path = Some(path.into());
+		self.tracks = tracks;
+		self.current = None;
+		self.last.clear();
+		self.next.clear();
+
+		Ok(())
+	}
+
+	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) {
+		let track = self.tracks.iter().find(|&iter| iter == path).unwrap();
+		let track = track.clone();
+
+		self.next.clear();
+		self.last.clear();
+
+		self.replace(track, player);
+	}
+
+	pub fn select_idx(&mut self, idx: usize, player: &mut Player) -> Result<(), QueueError> {
+		let track = self.track_by_idx(idx)?;
+		self.replace(track, player);
+
+		self.next.clear();
+		self.last.clear();
+
+		Ok(())
 	}
 
 	fn last_track_sequential(&mut self) -> Option<Track> {
