@@ -518,7 +518,7 @@ impl Lists {
 				}
 				Child::Mp3(path) => {
 					queue.queue(&parent.path)?;
-					queue.select_path(&path, player);
+					queue.select_path(&path, player)?;
 				}
 			},
 		}
@@ -541,7 +541,7 @@ impl Lists {
 				}
 				Child::Mp3(track) => {
 					queue.queue(&parent.path)?;
-					queue.select_path(&track, player);
+					queue.select_path(&track, player)?;
 				}
 			},
 		}

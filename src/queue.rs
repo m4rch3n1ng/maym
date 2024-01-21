@@ -315,14 +315,17 @@ impl Queue {
 		Ok(())
 	}
 
-	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) {
-		let track = self.tracks.iter().find(|&iter| iter == path).unwrap();
-		let track = track.clone();
+	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) -> Result<(), QueueError> {
+		let Some(track) = self.tracks.iter().find(|&iter| iter == path).cloned() else {
+			return Err(QueueError::NoTrack(path.to_owned()));
+		};
 
 		self.next.clear();
 		self.last.clear();
 
 		self.replace(track, player);
+
+		Ok(())
 	}
 
 	pub fn select_idx(&mut self, idx: usize, player: &mut Player) -> Result<(), QueueError> {
