@@ -52,7 +52,7 @@ impl Track {
 		D: Deserializer<'de>,
 	{
 		let path_or: Option<Utf8PathBuf> = Deserialize::deserialize(data)?;
-		let track = path_or.and_then(|path| Track::try_from(path).ok());
+		let track = path_or.and_then(|path| Track::new(path).ok());
 		Ok(track)
 	}
 
@@ -141,21 +141,6 @@ impl Display for Track {
 		let artist = self.tag.artist().unwrap_or("no artist");
 
 		write!(f, "{} ~ {}", title, artist)
-	}
-}
-
-impl TryFrom<Utf8PathBuf> for Track {
-	type Error = QueueError;
-	fn try_from(path: Utf8PathBuf) -> Result<Self, Self::Error> {
-		Track::new(path)
-	}
-}
-
-impl TryFrom<&str> for Track {
-	type Error = QueueError;
-	fn try_from(string: &str) -> Result<Self, Self::Error> {
-		let path = Utf8PathBuf::from(string);
-		Track::try_from(path)
 	}
 }
 
