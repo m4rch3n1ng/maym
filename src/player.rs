@@ -162,6 +162,7 @@ impl Player {
 	pub fn replace(&mut self, track: &str) {
 		self.0
 			.playlist_load_files(&[(track, FileState::Replace, None)])
+			.map_err(PlayerError::from)
 			.expect("error loading file");
 	}
 
@@ -169,6 +170,7 @@ impl Player {
 		let start = position.as_secs_f64();
 		self.0
 			.set_property("time-pos", start)
+			.map_err(PlayerError::from)
 			.expect("couldn't set time-pos");
 	}
 
@@ -176,12 +178,14 @@ impl Player {
 		let paused = self.paused();
 		self.0
 			.set_property("pause", !paused)
+			.map_err(PlayerError::from)
 			.expect("couldn't toggle player");
 	}
 
 	pub fn pause(&mut self, value: bool) {
 		self.0
 			.set_property("pause", value)
+			.map_err(PlayerError::from)
 			.expect("couldn't pause player");
 	}
 
@@ -189,6 +193,7 @@ impl Player {
 		let vol = self
 			.0
 			.get_property::<i64>("volume")
+			.map_err(PlayerError::from)
 			.expect("couldn't get volume");
 		vol.approx_as::<u64>().unwrap_or_saturate()
 	}
@@ -196,6 +201,7 @@ impl Player {
 	pub fn paused(&self) -> bool {
 		self.0
 			.get_property("pause")
+			.map_err(PlayerError::from)
 			.expect("couldn't get pause state")
 	}
 
@@ -222,11 +228,15 @@ impl Player {
 		let muted = self.muted();
 		self.0
 			.set_property("mute", !muted)
+			.map_err(PlayerError::from)
 			.expect("couldn't set mute");
 	}
 
 	pub fn muted(&self) -> bool {
-		self.0.get_property("mute").expect("couldn't get mute")
+		self.0
+			.get_property("mute")
+			.map_err(PlayerError::from)
+			.expect("couldn't get mute")
 	}
 
 	pub fn i_vol(&mut self, amt: u64) {
@@ -235,6 +245,7 @@ impl Player {
 
 		self.0
 			.set_property("volume", vol as i64)
+			.map_err(PlayerError::from)
 			.expect("couldn't get volume");
 	}
 
@@ -244,6 +255,7 @@ impl Player {
 
 		self.0
 			.set_property("volume", vol as i64)
+			.map_err(PlayerError::from)
 			.expect("couldn't set volume");
 	}
 }
