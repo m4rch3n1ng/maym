@@ -305,10 +305,10 @@ impl Queue {
 			return Err(QueueError::NoTrack(path.to_owned()));
 		};
 
+		self.replace(track, player);
+
 		self.next.clear();
 		self.last.clear();
-
-		self.replace(track, player);
 
 		Ok(())
 	}
@@ -463,6 +463,200 @@ impl Queue {
 		if state.done() {
 			self.next(player)?;
 		}
+
+		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::{Queue, QueueError, Track};
+	use crate::player::Player;
+	use camino::{Utf8Path, Utf8PathBuf};
+	use std::collections::VecDeque;
+
+	fn track<P: Into<Utf8PathBuf>>(path: P) -> Result<Track, QueueError> {
+		let path = path.into();
+		Track::new(path)
+	}
+
+	fn list<P: AsRef<Utf8Path>>(path: P) -> Result<Vec<Track>, QueueError> {
+		let mut list = Track::directory(path)?;
+		list.sort();
+		Ok(list)
+	}
+
+	fn queue<P: Into<Utf8PathBuf>>(path: P) -> Result<Queue, QueueError> {
+		let path = path.into();
+
+		let mut tracks = Track::directory(&path)?;
+		tracks.sort();
+
+		let queue = Queue {
+			path: Some(path),
+			tracks,
+			last: VecDeque::new(),
+			next: vec![],
+			current: None,
+			shuffle: false,
+			rng: rand::thread_rng(),
+		};
+		Ok(queue)
+	}
+
+	#[test]
+	fn seq() -> Result<(), color_eyre::eyre::Error> {
+		let t0 = track("mock/list 01/track 00.mp3")?;
+		let t1 = track("mock/list 01/track 01.mp3")?;
+		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
+		let t5 = track("mock/list 01/sub 01/track 05.mp3")?;
+
+		let mut player = Player::new()?;
+		let mut queue = queue("mock/list 01")?;
+
+		queue.next(&mut player)?;
+		assert_eq!(queue.track(), Some(&t0));
+
+		queue.next(&mut player)?;
+		assert_eq!(queue.track(), Some(&t1));
+
+		queue.next(&mut player)?;
+		assert_eq!(queue.track(), Some(&t2));
+
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+
+		assert_eq!(queue.track(), Some(&t0));
+
+		queue.last(&mut player);
+		assert_eq!(queue.track(), Some(&t5));
+
+		Ok(())
+	}
+
+	#[test]
+	fn last_seq() -> Result<(), color_eyre::eyre::Error> {
+		let t1 = track("mock/list 01/track 01.mp3")?;
+		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
+		let t5 = track("mock/list 01/sub 01/track 05.mp3")?;
+
+		let mut player = Player::new()?;
+		let mut queue = queue("mock/list 01")?;
+
+		queue.last(&mut player);
+		assert_eq!(queue.track(), None);
+
+		queue.next(&mut player)?;
+		assert!(queue.last.is_empty());
+
+		queue.last(&mut player);
+		assert_eq!(queue.track(), Some(&t5));
+
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+
+		assert_eq!(queue.track(), Some(&t2));
+
+		queue.last(&mut player);
+		assert_eq!(queue.track(), Some(&t1));
+
+		Ok(())
+	}
+
+	#[test]
+	fn shuf() -> Result<(), color_eyre::eyre::Error> {
+		let mut player = Player::new()?;
+		let mut queue = queue("mock/list 01")?;
+
+		queue.shuffle();
+		assert!(queue.is_shuffle());
+
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+
+		let tt = queue.current.clone();
+
+		queue.next(&mut player)?;
+		queue.last(&mut player);
+		queue.last(&mut player);
+		queue.next(&mut player)?;
+
+		assert_eq!(queue.current, tt);
+		assert_eq!(queue.next.len(), 1);
+		assert_eq!(queue.last.len(), 2);
+
+		queue.shuffle();
+		assert!(!queue.is_shuffle());
+		assert!(queue.last.is_empty());
+		assert!(queue.next.is_empty());
+
+		Ok(())
+	}
+
+	#[test]
+	fn idx() -> Result<(), color_eyre::eyre::Error> {
+		let t1 = track("mock/list 01/track 01.mp3")?;
+		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
+
+		let mut player = Player::new()?;
+		let mut queue = queue("mock/list 01")?;
+
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.last(&mut player);
+
+		queue.select_idx(2, &mut player)?;
+		assert_eq!(queue.track(), Some(&t2));
+
+		assert!(queue.next.is_empty());
+		assert!(queue.last.is_empty());
+
+		queue.select_idx(1, &mut player)?;
+		assert_eq!(queue.track(), Some(&t1));
+
+		Ok(())
+	}
+
+	#[test]
+	fn path() -> Result<(), color_eyre::eyre::Error> {
+		let t0 = track("mock/list 01/track 00.mp3")?;
+		let t4 = track("mock/list 01/sub 01/track 04.mp3")?;
+
+		let mut player = Player::new()?;
+		let mut queue = queue("mock/list 01")?;
+
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.next(&mut player)?;
+		queue.last(&mut player);
+
+		queue.select_path("mock/list 01/sub 01/track 04.mp3".into(), &mut player)?;
+		assert_eq!(queue.track(), Some(&t4));
+
+		assert!(queue.next.is_empty());
+		assert!(queue.last.is_empty());
+
+		queue.select_path("mock/list 01/track 00.mp3".into(), &mut player)?;
+		assert_eq!(queue.track(), Some(&t0));
+
+		Ok(())
+	}
+
+	#[test]
+	fn dot_queue() -> Result<(), color_eyre::eyre::Error> {
+		let mut queue = queue("mock/list 01")?;
+		let list02 = list("mock/list 02")?;
+
+		assert_eq!(queue.tracks().len(), 6);
+
+		queue.queue("mock/list 02")?;
+		assert_eq!(queue.tracks, list02);
+		assert_eq!(queue.tracks().len(), 5);
 
 		Ok(())
 	}
