@@ -1,3 +1,5 @@
+//! queue and track
+
 use crate::{player::Player, state::State, ui::utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
@@ -8,23 +10,35 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
 use thiserror::Error;
 
+/// queue error
 #[derive(Debug, Error)]
 pub enum QueueError {
+	/// track doesn't exist
 	#[error("couldn't find track {0:?}")]
 	NoTrack(Utf8PathBuf),
+	/// queue is empty
 	#[error("queue is empty")]
 	NoTracks,
+	/// path is a directory
+	#[error("is directory: {0:?}")]
+	IsDirectory(Utf8PathBuf),
+	/// index is out of bounds
 	#[error("out of bounds {0}")]
 	OutOfBounds(usize),
+	/// path is not a directory
 	#[error("not a directory {0:?}")]
 	NotADirectory(Utf8PathBuf),
+	/// io error
 	#[error("io error")]
 	IoError(#[from] std::io::Error),
 }
 
+/// struct representing a mp3 file
 #[derive(Clone)]
 pub struct Track {
+	/// path to file
 	pub path: Utf8PathBuf,
+	/// id3 tags
 	tag: Tag,
 }
 
@@ -38,15 +52,25 @@ impl Serialize for Track {
 }
 
 impl Track {
+	/// read [`Track`] from path
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if the path doesn't exist or is a directory
 	fn new(path: Utf8PathBuf) -> Result<Self, QueueError> {
 		if !path.exists() {
 			return Err(QueueError::NoTrack(path));
+		} else if path.is_dir() {
+			return Err(QueueError::IsDirectory(path));
 		}
 
 		let tag = Tag::read_from_path(&path).unwrap_or_default();
 		Ok(Track { path, tag })
 	}
 
+	/// deserialize into [`Option`] of [`Track`]
+	///
+	/// serializes into [`None`] if path doesn't exist
 	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Option<Track>, D::Error>
 	where
 		D: Deserializer<'de>,
@@ -56,6 +80,11 @@ impl Track {
 		Ok(track)
 	}
 
+	/// recursively read [`Track`]s from directory
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if path is not a directory
 	pub fn directory<P: AsRef<Utf8Path>>(path: P) -> Result<Vec<Self>, QueueError> {
 		let path = path.as_ref();
 		if !path.is_dir() {
@@ -79,14 +108,16 @@ impl Track {
 		recurse_tracks.chain(tracks).collect()
 	}
 
+	/// return str representation of [`Track::path`]
+	///
+	/// used for [`Player::replace`], as mpv can only handle utf8 strings
 	pub fn as_str(&self) -> &str {
 		self.path.as_str()
 	}
 
-	pub fn track(&self) -> Option<u32> {
-		self.tag.track()
-	}
-
+	/// format track into a [`ratatui::text::Line`] struct
+	///
+	/// takes [`Queue`] to highlight currently playing track
 	pub fn line(&self, queue: &Queue) -> Line {
 		let fmt = self.to_string();
 		if let Some(track) = queue.track() {
@@ -100,18 +131,27 @@ impl Track {
 		}
 	}
 
+	/// [id3 track tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#trck)
+	pub fn track(&self) -> Option<u32> {
+		self.tag.track()
+	}
+
+	/// reference to [id3 title tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#tit2)
 	pub fn title(&self) -> Option<&str> {
 		self.tag.title()
 	}
 
+	/// reference to [id3 artist tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#tpe1)
 	pub fn artist(&self) -> Option<&str> {
 		self.tag.artist()
 	}
 
+	/// reference to [id3 album tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#talb)
 	pub fn album(&self) -> Option<&str> {
 		self.tag.album()
 	}
 
+	/// reference to [id3 lyrics tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#uslt)
 	pub fn lyrics(&self) -> Option<&str> {
 		self.tag.lyrics().next().map(|lyr| &*lyr.text)
 	}
@@ -197,18 +237,27 @@ impl PartialOrd for Track {
 	}
 }
 
+/// struct managing playback queue
 #[derive(Debug)]
 pub struct Queue {
+	/// queue path
 	path: Option<Utf8PathBuf>,
+	/// queue track list
 	tracks: Vec<Track>,
+	/// previously played tracks
 	last: VecDeque<Track>,
+	/// next-up tracks
 	next: Vec<Track>,
+	/// currently playing track
 	current: Option<Track>,
+	/// do shuffle queue
 	shuffle: bool,
+	/// rng struct for shuffling
 	rng: ThreadRng,
 }
 
 impl Queue {
+	/// initialize [`Queue`] with a [`State`] struct
 	pub fn state(state: &State) -> color_eyre::Result<Self> {
 		let (tracks, path) = match state.queue.as_deref() {
 			Some(path) if path.exists() => {
@@ -245,11 +294,15 @@ impl Queue {
 		Ok(queue)
 	}
 
+	/// returns if shuffle is active
 	#[inline]
 	pub fn is_shuffle(&self) -> bool {
 		self.shuffle
 	}
 
+	/// toggle shuffle
+	///
+	/// also clears [`Queue::next`] and [`Queue::last`]
 	pub fn shuffle(&mut self) {
 		self.next.clear();
 		self.last.clear();
@@ -257,33 +310,43 @@ impl Queue {
 		self.shuffle = !self.shuffle;
 	}
 
+	/// return queue path
 	#[inline]
 	pub fn path(&self) -> Option<&Utf8PathBuf> {
 		self.path.as_ref()
 	}
 
+	/// return track list
 	#[inline]
 	pub fn tracks(&self) -> &[Track] {
 		&self.tracks
 	}
 
+	/// return currently playing track
 	#[inline]
 	pub fn track(&self) -> Option<&Track> {
 		self.current.as_ref()
 	}
 
+	/// return index of currently playing track, if it exists
 	#[inline]
 	pub fn idx(&self) -> Option<usize> {
 		self.track()
 			.and_then(|track| self.tracks().iter().position(|map| track == map))
 	}
 
+	/// internal implementation for [`Queue::select_idx`]
 	#[inline]
 	fn track_by_idx(&mut self, idx: usize) -> Result<Track, QueueError> {
 		let track = self.tracks.get(idx).ok_or(QueueError::OutOfBounds(idx))?;
 		Ok(track.clone())
 	}
 
+	/// queue a new directory
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if the directory doesn't exist
 	pub fn queue<P: AsRef<Utf8Path> + Into<Utf8PathBuf>>(
 		&mut self,
 		path: P,
@@ -300,6 +363,13 @@ impl Queue {
 		Ok(())
 	}
 
+	/// select track by path
+	///
+	/// also clears [`Queue::next`] and [`Queue::last`]
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if the track of the path isn't in the [`Queue::tracks`]
 	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) -> Result<(), QueueError> {
 		let Some(track) = self.tracks.iter().find(|&iter| iter == path).cloned() else {
 			return Err(QueueError::NoTrack(path.to_owned()));
@@ -313,6 +383,13 @@ impl Queue {
 		Ok(())
 	}
 
+	/// select track by index
+	///
+	/// also clears [`Queue::next`] and [`Queue::last`]
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if the index is out bounds
 	pub fn select_idx(&mut self, idx: usize, player: &mut Player) -> Result<(), QueueError> {
 		let track = self.track_by_idx(idx)?;
 		self.replace(track, player);
@@ -323,6 +400,10 @@ impl Queue {
 		Ok(())
 	}
 
+	/// select last track sequentially
+	///
+	/// returns [`None`] on an empty track list,
+	/// or if no track is currently playing
 	fn last_track_sequential(&mut self) -> Option<Track> {
 		if self.tracks.is_empty() {
 			return None;
@@ -341,6 +422,14 @@ impl Queue {
 		idx.and_then(|idx| self.track_by_idx(idx).ok())
 	}
 
+	/// play last track
+	///
+	/// in order:
+	/// 1. try to pop from [`Queue::last`]
+	/// 2. if !self.shuffle, use [`Queue::last_track_sequential`]
+	/// 3. give up
+	///
+	/// if it finds a track to play, it pushes it to [`Queue::next`]
 	pub fn last(&mut self, player: &mut Player) {
 		let last = if let Some(last) = self.last.pop_back() {
 			Some(last)
@@ -359,6 +448,11 @@ impl Queue {
 		}
 	}
 
+	/// get next track sequentially
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if [`Queue::tracks`] is empty
 	fn next_track_sequential(&mut self) -> Result<Track, QueueError> {
 		if self.tracks.is_empty() {
 			return Err(QueueError::NoTracks);
@@ -377,8 +471,15 @@ impl Queue {
 		self.track_by_idx(idx)
 	}
 
+	/// get next track randomly
+	///
+	/// # Errors
+	///
+	/// returns [`QueueError`] if [`Queue::tracks`] is empty
 	fn next_track_shuffle(&mut self) -> Result<Track, QueueError> {
 		if let Some(current) = self.track().cloned() {
+			// try to choose a different track if one is already playing
+			// fall back when the playlist length is 1
 			let track = self
 				.tracks
 				.iter()
@@ -396,6 +497,7 @@ impl Queue {
 		}
 	}
 
+	/// get next track
 	fn next_track(&mut self) -> Result<Track, QueueError> {
 		if let Some(track) = self.next.pop() {
 			Ok(track)
@@ -406,10 +508,16 @@ impl Queue {
 		}
 	}
 
+	/// replace current track
+	///
+	/// replaces track in [`Player`] via [`Player::replace`]
+	/// and pushes last track to [`Queue::last`]
 	fn replace(&mut self, track: Track, player: &mut Player) {
 		player.replace(track.as_str());
 		player.pause(false);
 
+		// only replace and add to last, if it isn't already playing
+		// (i.e. it hasn't yet been added to last)
 		if self.track() != Some(&track) {
 			if let Some(current) = self.current.replace(track) {
 				self.last.push_back(current);
@@ -422,6 +530,7 @@ impl Queue {
 		}
 	}
 
+	/// play next track
 	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
 		let track = self.next_track()?;
 		self.replace(track, player);
@@ -429,6 +538,7 @@ impl Queue {
 		Ok(())
 	}
 
+	/// restart current track
 	pub fn restart(&self, player: &mut Player) {
 		if self.current.is_some() {
 			let start = Duration::ZERO;
@@ -436,6 +546,7 @@ impl Queue {
 		}
 	}
 
+	/// seek backwards in current track
 	pub fn seek_d(&self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some() {
 			if let Some(elapsed) = state.elapsed() {
@@ -445,6 +556,7 @@ impl Queue {
 		}
 	}
 
+	/// seek forward in current track
 	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some() {
 			if let Some((elapsed, duration)) = state.elapsed_duration() {
@@ -459,6 +571,7 @@ impl Queue {
 		}
 	}
 
+	/// if [`State::done()`], play next track
 	pub fn done(&mut self, player: &mut Player, state: &State) -> color_eyre::Result<()> {
 		if state.done() {
 			self.next(player)?;

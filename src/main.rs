@@ -18,6 +18,7 @@ use ui::{Popups, Ui};
 
 mod config;
 mod player;
+#[warn(clippy::missing_docs_in_private_items)]
 mod queue;
 mod state;
 mod ui;
