@@ -721,4 +721,26 @@ mod test {
 
 		Ok(())
 	}
+
+	fn deserializer(val: &str) -> serde_json::de::Deserializer<serde_json::de::StrRead> {
+		serde_json::de::Deserializer::from_str(val)
+	}
+
+	#[test]
+	fn maybe_deserialize() -> Result<(), serde_json::Error> {
+		let mut des = deserializer("null");
+		let track = Track::maybe_deserialize(&mut des)?;
+		assert_eq!(track, None);
+
+		let mut des = deserializer("\"mock/list 01/track 01.mp3\"");
+		let track = Track::maybe_deserialize(&mut des)?;
+		let track = track.unwrap();
+		assert_eq!(track.as_str(), "mock/list 01/track 01.mp3");
+
+		let mut des = deserializer("\"mock/list 01/track 08.mp3\"");
+		let track = Track::maybe_deserialize(&mut des)?;
+		assert!(track.is_none());
+
+		Ok(())
+	}
 }
