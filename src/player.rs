@@ -3,6 +3,7 @@ use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
 use libmpv::{FileState, Mpv};
 use std::fmt::Debug;
+use std::rc::Rc;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -85,8 +86,12 @@ impl From<i32> for MpvError {
 
 #[derive(Debug, Error)]
 pub enum PlayerError {
-	#[error("error loading files")]
-	LoadFiles { index: usize },
+	#[error("error loading file {index}")]
+	LoadFiles {
+		index: usize,
+		#[source]
+		error: Box<PlayerError>,
+	},
 	#[error("version mismatch")]
 	VersionMismatch { linked: u64, loaded: u64 },
 	#[error("invalid utf8")]
@@ -100,7 +105,13 @@ pub enum PlayerError {
 impl From<libmpv::Error> for PlayerError {
 	fn from(value: libmpv::Error) -> Self {
 		match value {
-			libmpv::Error::Loadfiles { index, .. } => PlayerError::LoadFiles { index },
+			libmpv::Error::Loadfiles { index, error } => match Rc::into_inner(error) {
+				Some(error) => PlayerError::LoadFiles {
+					index,
+					error: Box::new(PlayerError::from(error)),
+				},
+				None => unreachable!(),
+			},
 			libmpv::Error::VersionMismatch { linked, loaded } => {
 				PlayerError::VersionMismatch { linked, loaded }
 			}
