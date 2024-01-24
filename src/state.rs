@@ -23,8 +23,6 @@ pub enum StateError {
 	IoError(#[from] std::io::Error),
 	#[error("serde error")]
 	SerdeJsonError(#[from] serde_json::Error),
-	#[error("from utf8 error")]
-	FromUtf8Error(#[from] std::string::FromUtf8Error),
 }
 
 const fn _default_true() -> bool {

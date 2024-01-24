@@ -307,78 +307,62 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-	use super::{Child, List};
+	use super::{ConfigError, List};
 	use camino::Utf8PathBuf;
 
-	fn list<P: Into<Utf8PathBuf>>(path: P) -> List {
+	fn list<P: Into<Utf8PathBuf>>(path: P) -> Result<List, ConfigError> {
 		let path = path.into();
-		List { path, parent: None }
-	}
-
-	fn child<P: Into<Utf8PathBuf>>(path: P) -> Child {
-		let list = list(path);
-		Child::List(list)
-	}
-
-	fn mp3<P: Into<Utf8PathBuf>>(path: P) -> Child {
-		let path = path.into();
-		Child::Mp3(path)
+		List::new(path)
 	}
 
 	#[test]
-	fn list_contains() {
-		let mock = list("/path/test");
+	fn list_contains() -> Result<(), color_eyre::eyre::Error> {
+		let mock = list("mock/list 01")?;
 
-		let one = mock.contains("/path/test".into());
+		let one = mock.contains("mock/list 01/track 00.mp3".into());
 		assert!(one);
 
-		let two = mock.contains("/path/test/other".into());
+		let two = mock.contains("mock/list 01/sub 01".into());
 		assert!(two);
 
-		let thr = mock.contains("/path/test/other/".into());
+		let thr = mock.contains("mock/list 01".into());
 		assert!(thr);
 
-		let fou = mock.contains("/path/test/other/more".into());
+		let fou = mock.contains("mock/list 01/sub 02/sub sub/".into());
 		assert!(fou);
 
-		let fiv = mock.contains("/path".into());
+		let fiv = mock.contains("mock".into());
 		assert!(!fiv);
 
-		let six = mock.contains("/test".into());
-		assert!(!six)
+		let six = mock.contains("/".into());
+		assert!(!six);
+
+		Ok(())
 	}
 
 	#[test]
-	fn child_list_contains() {
-		let list = child("/list/test");
+	fn list_find() -> Result<(), color_eyre::eyre::Error> {
+		let mock = list("mock/list 01")?;
 
-		let one = list.contains("/list/test".into());
-		assert!(one);
+		let one = Utf8PathBuf::from("mock/list 01");
+		let one = mock.find(&one);
+		let lis = list("mock/list 01")?;
+		assert_eq!(one, Some(lis));
 
-		let two = list.contains("/list/test/other".into());
-		assert!(two);
+		let two = Utf8PathBuf::from("mock/list 01/sub 01");
+		let two = mock.find(&two);
+		let lis = list("mock/list 01/sub 01")?;
+		assert_eq!(two, Some(lis));
 
-		let thr = list.contains("/list".into());
-		assert!(!thr);
+		let thr = Utf8PathBuf::from("mock/list 01/track 01.mp3");
+		assert!(thr.exists());
+		let thr = mock.find(&thr);
+		assert!(thr.is_none());
 
-		let fou = list.contains("/test".into());
-		assert!(!fou);
-	}
+		let fou = Utf8PathBuf::from("mock");
+		let fou = mock.find(&fou);
+		assert!(fou.is_none());
 
-	#[test]
-	fn child_mp3_contains() {
-		let mp3 = mp3("/mp3/test");
-
-		let one = mp3.contains("/mp3/test".into());
-		assert!(one);
-
-		let two = mp3.contains("/mp3/test/other".into());
-		assert!(!two);
-
-		let thr = mp3.contains("/mp3".into());
-		assert!(!thr);
-
-		let fou = mp3.contains("/mp4".into());
-		assert!(!fou);
+		Ok(())
 	}
 }
