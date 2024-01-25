@@ -17,10 +17,13 @@ static PATH: Lazy<Utf8PathBuf> =
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
+	/// io error
 	#[error("io error")]
 	IoError(#[from] std::io::Error),
+	/// serde error
 	#[error("serde error")]
 	SerdeJsonError(#[from] serde_json::Error),
+	/// list doesn't exist
 	#[error("list {0:?} doesn't exist")]
 	ListDoesntExist(Utf8PathBuf),
 }
@@ -266,9 +269,9 @@ impl List {
 	where
 		D: Deserializer<'de>,
 	{
-		let lists_or: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data)?;
-		let track = lists_or.map(|lists| lists.into_iter().flat_map(List::new).collect());
-		Ok(track)
+		let paths_or: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data)?;
+		let lists = paths_or.map(|lists| lists.into_iter().flat_map(List::new).collect());
+		Ok(lists)
 	}
 }
 
@@ -309,12 +312,24 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-	use super::{ConfigError, List};
+	use super::{Child, ConfigError, List};
 	use camino::Utf8PathBuf;
+	use std::cmp::Ordering;
 
 	fn list<P: Into<Utf8PathBuf>>(path: P) -> Result<List, ConfigError> {
 		let path = path.into();
 		List::new(path)
+	}
+
+	fn child<P: Into<Utf8PathBuf>>(path: P) -> Child {
+		let path = path.into();
+		let list = List { path, parent: None };
+		Child::List(list)
+	}
+
+	fn mp3<P: Into<Utf8PathBuf>>(path: P) -> Child {
+		let path = path.into();
+		Child::Mp3(path)
 	}
 
 	#[test]
@@ -364,6 +379,43 @@ mod test {
 		let fou = Utf8PathBuf::from("mock");
 		let fou = mock.find(&fou);
 		assert!(fou.is_none());
+
+		Ok(())
+	}
+
+	#[test]
+	fn ord() {
+		let zer3 = mp3("00");
+		let one3 = mp3("01");
+
+		let zerc = child("00");
+		let onec = child("01");
+
+		assert_eq!(zer3.cmp(&one3), Ordering::Less);
+		assert_eq!(zer3.cmp(&zer3), Ordering::Equal);
+
+		assert_eq!(zerc.cmp(&onec), Ordering::Less);
+		assert_eq!(zerc.cmp(&zerc), Ordering::Equal);
+
+		assert_eq!(zer3.cmp(&zerc), Ordering::Greater);
+		assert_eq!(one3.cmp(&zerc), Ordering::Greater);
+
+		assert_eq!(zerc.cmp(&zer3), Ordering::Less);
+		assert_eq!(zerc.cmp(&one3), Ordering::Less);
+	}
+
+	#[test]
+	fn children() -> Result<(), color_eyre::eyre::Error> {
+		let mock = list("mock/list 01")?;
+		let comp = vec![
+			child("mock/list 01/sub 01"),
+			child("mock/list 01/sub 02"),
+			mp3("mock/list 01/track 00.mp3"),
+			mp3("mock/list 01/track 01.mp3"),
+		];
+
+		let children = mock.children();
+		assert_eq!(children, comp);
 
 		Ok(())
 	}
