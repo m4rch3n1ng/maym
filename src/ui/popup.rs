@@ -466,6 +466,7 @@ impl Lists {
 		}
 	}
 
+	/// overwrites `self.list` and sets the index for `self.state`
 	fn set(&mut self, list: Option<List>, idx: usize) {
 		self.list = list;
 		self.state.select(Some(idx));
@@ -489,7 +490,8 @@ impl Lists {
 	}
 
 	pub fn left(&mut self) {
-		if let Some(ref list) = self.list {
+		if let Some(ref mut list) = self.list {
+			// warn: list is now invalid as the parent is now `None`
 			if let Some(parent) = list.parent() {
 				let idx = parent.children().iter().position(|child| child == list);
 				let idx = idx.unwrap_or(0);

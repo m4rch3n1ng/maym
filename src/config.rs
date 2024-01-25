@@ -9,7 +9,7 @@ use ratatui::{
 	text::Line,
 };
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{fs, rc::Rc, time::Duration};
+use std::{fs, time::Duration};
 use thiserror::Error;
 
 static PATH: Lazy<Utf8PathBuf> =
@@ -138,7 +138,7 @@ impl PartialOrd for Child {
 #[derive(Debug, Clone)]
 pub struct List {
 	pub path: Utf8PathBuf,
-	parent: Option<Rc<List>>,
+	parent: Option<Box<List>>,
 }
 
 impl List {
@@ -155,7 +155,7 @@ impl List {
 	/// create [`List`] struct with parent node
 	pub fn with_parent(path: Utf8PathBuf, parent: List) -> Result<Self, ConfigError> {
 		if path.exists() {
-			let parent = Rc::new(parent);
+			let parent = Box::new(parent);
 			let list = List {
 				path,
 				parent: Some(parent),
@@ -167,8 +167,10 @@ impl List {
 	}
 
 	/// extract parent from [`List`], if list has parent
-	pub fn parent(&self) -> Option<List> {
-		self.parent.as_ref().map(|rc| (**rc).clone())
+	pub fn parent(&mut self) -> Option<List> {
+		// i can take the parent, as this list should be discarded
+		// if you want to get an owned version of the parent
+		self.parent.take().map(|bx| *bx)
 	}
 
 	// todo error handling
