@@ -122,7 +122,7 @@ fn seek_seek(
 }
 
 fn seek_info(frame: &mut Frame, state: &State, area: Rect) {
-	let fmt_vol = format!("{: >3}%", state.volume);
+	let fmt_vol = format!(" {: >3}%", state.volume);
 	let (vol_str, vol) = if state.muted {
 		(
 			Span::styled("[mute]", utils::style::accent()),
