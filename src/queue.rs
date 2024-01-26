@@ -572,7 +572,7 @@ impl Queue {
 	}
 
 	/// if [`State::done()`], play next track
-	pub fn done(&mut self, player: &mut Player, state: &State) -> color_eyre::Result<()> {
+	pub fn done(&mut self, player: &mut Player, state: &State) -> Result<(), QueueError> {
 		if state.done() {
 			self.next(player)?;
 		}
