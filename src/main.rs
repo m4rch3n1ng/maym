@@ -1,11 +1,12 @@
 use self::{
+	cli::{Cli, Command},
 	config::Config,
 	player::Player,
 	queue::{Queue, QueueError},
 	state::{State, StateError},
 	ui::{Popups, Ui},
 };
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use color_eyre::{eyre::Context, owo_colors::OwoColorize, Section, SectionExt};
 use crossterm::{
 	cursor,
@@ -22,6 +23,7 @@ use std::{
 };
 use thiserror::Error;
 
+mod cli;
 mod config;
 mod player;
 mod queue;
@@ -233,17 +235,6 @@ impl Drop for Application {
 
 		let _ = execute!(stdout, cursor::Show);
 	}
-}
-
-#[derive(Debug, Parser)]
-struct Cli {
-	#[clap(subcommand)]
-	cmd: Option<Command>,
-}
-
-#[derive(Debug, Subcommand)]
-enum Command {
-	Config,
 }
 
 fn install() -> color_eyre::Result<()> {
