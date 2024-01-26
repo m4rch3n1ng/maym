@@ -5,7 +5,8 @@ use self::{
 	state::{State, StateError},
 	ui::{Popups, Ui},
 };
-use color_eyre::eyre::Context;
+use clap::{Parser, Subcommand};
+use color_eyre::{eyre::Context, owo_colors::OwoColorize, Section, SectionExt};
 use crossterm::{
 	cursor,
 	event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
@@ -51,7 +52,9 @@ struct Application {
 
 impl Application {
 	pub fn new() -> color_eyre::Result<Self> {
-		let config = Config::init()?;
+		let config = Config::init()
+			.wrap_err("config error")
+			.with_section(|| "maym config".cyan().to_string().header("Try running:"))?;
 		ui::utils::style::load(&config);
 
 		let state = State::init();
@@ -232,6 +235,17 @@ impl Drop for Application {
 	}
 }
 
+#[derive(Debug, Parser)]
+struct Cli {
+	#[clap(subcommand)]
+	cmd: Option<Command>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+	Config,
+}
+
 fn install() -> color_eyre::Result<()> {
 	color_eyre::install()?;
 
@@ -257,8 +271,14 @@ fn install() -> color_eyre::Result<()> {
 fn main() -> color_eyre::Result<()> {
 	install()?;
 
-	let mut app = Application::new().wrap_err("music error")?;
-	app.start().wrap_err("music error")?;
+	let cli = Cli::parse();
+	if let Some(Command::Config) = cli.cmd {
+		let config = Config::ask()?;
+		println!("config {:?}", config);
+	} else {
+		let mut app = Application::new().wrap_err("music error")?;
+		app.start().wrap_err("music error")?;
+	}
 
 	Ok(())
 }

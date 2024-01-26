@@ -8,7 +8,9 @@ use crate::{
 	ui::utils as ui,
 };
 use camino::{Utf8Path, Utf8PathBuf};
+use may_clack::{cancel, error::ClackError, input, intro, outro};
 use once_cell::sync::Lazy;
+use owo_colors::OwoColorize;
 use ratatui::{
 	style::{Color, Style, Stylize},
 	text::Line,
@@ -332,6 +334,21 @@ impl List {
 	}
 }
 
+impl FromStr for List {
+	type Err = ConfigError;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let path = Utf8PathBuf::from(s);
+		List::new(path)
+	}
+}
+
+impl Display for List {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let path = self.path.as_str();
+		f.write_str(path)
+	}
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ColorWrap(Color);
 
@@ -424,6 +441,11 @@ pub struct Config {
 	lists: Vec<List>,
 }
 
+fn do_cancel() {
+	cancel!("cancel");
+	panic!("cancelled");
+}
+
 impl Config {
 	/// read from [`CONFIG_PATH`] and init [`Config`] struct
 	///
@@ -432,6 +454,39 @@ impl Config {
 		let file = fs::read_to_string(&*CONFIG_PATH)?;
 		let config = serde_json::from_str(&file)?;
 		Ok(config)
+	}
+
+	/// create and modify [`Config`] by asking the user
+	pub fn ask() -> Result<Self, ClackError> {
+		println!();
+		intro!(<&str as OwoColorize>::reversed(&" setup config "));
+
+		let config = Config::init().ok();
+
+		let vol = config.as_ref().and_then(|config| config.vol);
+		let vol = input("volume increase amount")
+			.maybe_initial(vol)
+			.cancel(do_cancel)
+			.maybe_parse::<u64>()?;
+
+		let accent = config.as_ref().and_then(|conf| conf.accent);
+
+		let seek = config.as_ref().and_then(|config| config.seek);
+		let seek = input("track seek amount (in s)")
+			.maybe_initial(seek)
+			.cancel(do_cancel)
+			.maybe_parse::<u64>()?;
+
+		let lists = config.map(|conf| conf.lists).unwrap_or_default();
+
+		outro!();
+
+		Ok(Config {
+			vol,
+			seek,
+			accent,
+			lists,
+		})
 	}
 
 	/// get reference to [`Config::lists`]
