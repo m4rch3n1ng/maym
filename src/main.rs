@@ -7,6 +7,7 @@ use self::{
 };
 use color_eyre::eyre::Context;
 use crossterm::{
+	cursor,
 	event::{self, Event, KeyCode, KeyModifiers, MouseEventKind},
 	execute, terminal,
 };
@@ -72,7 +73,6 @@ impl Application {
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
 			if event::poll(timeout)? {
-				// todo check if press
 				match event::read()? {
 					Event::Key(key) => match (key.code, key.modifiers) {
 						// global
@@ -140,6 +140,7 @@ impl Application {
 						// ignore
 						_ => {}
 					},
+
 					Event::Mouse(mouse) => match mouse.kind {
 						MouseEventKind::ScrollDown => self.ui.down(),
 						MouseEventKind::ScrollUp => self.ui.up(),
@@ -183,18 +184,22 @@ impl Application {
 		let backend = CrosstermBackend::new(&stdout);
 		let mut terminal = Terminal::new(backend)?;
 
-		let result = self.run(&mut terminal);
+		self.run(&mut terminal)
+	}
+}
+
+impl Drop for Application {
+	fn drop(&mut self) {
+		let mut stdout = io::stdout();
 
 		let _ = terminal::disable_raw_mode();
 		let _ = execute!(
-			terminal.backend_mut(),
+			stdout,
 			terminal::LeaveAlternateScreen,
 			event::DisableMouseCapture
 		);
 
-		let _ = terminal.show_cursor();
-
-		result
+		let _ = execute!(stdout, cursor::Show);
 	}
 }
 
