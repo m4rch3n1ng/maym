@@ -1,14 +1,12 @@
 use crate::state::State;
-use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-/*
-
-let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
-let end = now + 4 * 60 * 1000;
-let timestamps = activity::Timestamps::new().start(0).end(end);
-let payload = activity::Activity::new().details("current track").state("fuck").timestamps(timestamps);
-client.set_activity(payload).unwrap(); */
+use discord_rich_presence::{
+	activity::{Activity, Timestamps},
+	DiscordIpc, DiscordIpcClient,
+};
+use std::{
+	fmt::Debug,
+	time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 pub struct Discord(DiscordIpcClient);
 
@@ -22,27 +20,52 @@ impl Discord {
 		self.0.connect().unwrap();
 	}
 
+	fn start_end(&self, duration: Duration, elapsed: Duration) -> (i64, i64) {
+		let now = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.expect("UNIX_EPOCH should always be in the past");
+
+		let start = now - elapsed;
+		let end = start + duration;
+
+		let start = start.as_millis() as i64;
+		let end = end.as_millis() as i64;
+
+		(start, end)
+	}
+
 	pub fn state(&mut self, state: &State) {
 		let track = state.track.as_ref().unwrap();
 		let title = track.title().unwrap();
 		let artist = track.artist().unwrap();
 
-		let activity = activity::Activity::new().details(title).state(artist);
+		let activity = Activity::new().details(title).state(artist);
 		let activity = if state.paused {
-			activity
+			Some(activity)
+		} else if let Some((elapsed, duration)) = state.elapsed_duration() {
+			let (start, end) = self.start_end(duration, elapsed);
+			let timestamps = Timestamps::new().start(start).end(end);
+
+			let activity = activity.timestamps(timestamps);
+			Some(activity)
 		} else {
-			let duration = state.duration().unwrap();
-			let now = SystemTime::now()
-				.duration_since(UNIX_EPOCH)
-				.unwrap()
-				.as_millis() as u64;
-			let now = Duration::from_millis(now);
-			let end = now + duration;
-			let end = end.as_millis() as i64;
-			let timestamps = activity::Timestamps::new().start(0).end(end);
-			activity.timestamps(timestamps)
+			None
 		};
 
-		self.0.set_activity(activity).unwrap();
+		if let Some(activity) = activity {
+			self.0.set_activity(activity).unwrap();
+		}
+	}
+}
+
+impl Debug for Discord {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Discord").finish_non_exhaustive()
+	}
+}
+
+impl Drop for Discord {
+	fn drop(&mut self) {
+		let _ = self.0.clear_activity();
 	}
 }

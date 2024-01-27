@@ -48,6 +48,7 @@ struct Application {
 	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
+	pub discord: Discord,
 	tick: Duration,
 }
 
@@ -58,6 +59,9 @@ impl Application {
 
 		let state = State::init();
 		let queue = Queue::state(&state)?;
+
+		let mut discord = Discord::new();
+		discord.connect();
 
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
@@ -72,6 +76,7 @@ impl Application {
 			state,
 			queue,
 			ui,
+			discord,
 			tick,
 		};
 		Ok(app)
@@ -102,6 +107,8 @@ impl Application {
 
 			if last.elapsed() >= self.tick {
 				self.state.tick(&self.player, &self.queue, &mut self.ui);
+				self.discord.state(&self.state);
+
 				if !skip_done {
 					self.queue.done(&mut self.player, &self.state)?;
 				} else {
@@ -258,13 +265,6 @@ fn install() -> color_eyre::Result<()> {
 
 fn main() -> color_eyre::Result<()> {
 	install()?;
-
-	let mut state = State::init();
-	state.paused = false;
-
-	let mut discord = Discord::new();
-	discord.connect();
-	discord.state(&state);
 
 	let mut app = Application::new().wrap_err("music error")?;
 	app.start().wrap_err("music error")?;
