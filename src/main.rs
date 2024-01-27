@@ -1,11 +1,15 @@
-use self::{player::Player, state::State};
+use self::{
+	config::Config,
+	player::Player,
+	queue::Queue,
+	state::State,
+	ui::{Popups, Ui},
+};
 use color_eyre::eyre::Context;
-use config::Config;
 use crossterm::{
 	event::{self, Event, KeyCode, KeyModifiers, MouseEventKind},
 	execute, terminal,
 };
-use queue::Queue;
 use ratatui::{
 	prelude::{Backend, CrosstermBackend},
 	Terminal,
@@ -14,7 +18,6 @@ use std::{
 	io,
 	time::{Duration, Instant},
 };
-use ui::{Popups, Ui};
 
 mod config;
 mod player;
