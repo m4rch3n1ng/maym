@@ -1,6 +1,7 @@
+#[cfg(feature = "discord")]
+use self::discord::Discord;
 use self::{
 	config::Config,
-	discord::Discord,
 	player::Player,
 	queue::{Queue, QueueError},
 	state::{State, StateError},
@@ -23,6 +24,7 @@ use std::{
 use thiserror::Error;
 
 mod config;
+#[cfg(feature = "discord")]
 mod discord;
 mod player;
 mod queue;
@@ -48,6 +50,7 @@ struct Application {
 	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
+	#[cfg(feature = "discord")]
 	pub discord: Discord,
 	tick: Duration,
 }
@@ -60,7 +63,9 @@ impl Application {
 		let state = State::init();
 		let queue = Queue::state(&state)?;
 
+		#[cfg(feature = "discord")]
 		let mut discord = Discord::new();
+		#[cfg(feature = "discord")]
 		discord.connect();
 
 		let mut player = Player::new()?;
@@ -76,6 +81,7 @@ impl Application {
 			state,
 			queue,
 			ui,
+			#[cfg(feature = "discord")]
 			discord,
 			tick,
 		};
@@ -107,6 +113,7 @@ impl Application {
 
 			if last.elapsed() >= self.tick {
 				self.state.tick(&self.player, &self.queue, &mut self.ui);
+				#[cfg(feature = "discord")]
 				self.discord.state(&self.state);
 
 				if !skip_done {
