@@ -20,7 +20,7 @@ impl Discord {
 		self.0.connect().unwrap();
 	}
 
-	fn start_end(&self, duration: Duration, elapsed: Duration) -> (i64, i64) {
+	fn timestamps(duration: Duration, elapsed: Duration) -> (i64, i64) {
 		let now = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
 			.expect("UNIX_EPOCH should always be in the past");
@@ -34,26 +34,34 @@ impl Discord {
 		(start, end)
 	}
 
-	pub fn state(&mut self, state: &State) {
-		let track = state.track.as_ref().unwrap();
-		let title = track.title().unwrap();
-		let artist = track.artist().unwrap();
+	fn activity<'s>(&self, state: &'s State) -> Option<Activity<'s>> {
+		if let Some(track) = state.track.as_ref() {
+			let title = track.title().unwrap_or("unknown title");
+			let artist = track.artist().unwrap_or("unknown artist");
 
-		let activity = Activity::new().details(title).state(artist);
-		let activity = if state.paused {
-			Some(activity)
-		} else if let Some((elapsed, duration)) = state.elapsed_duration() {
-			let (start, end) = self.start_end(duration, elapsed);
-			let timestamps = Timestamps::new().start(start).end(end);
+			let activity = Activity::new().details(title).state(artist);
+			if state.paused {
+				Some(activity)
+			} else if let Some((elapsed, duration)) = state.elapsed_duration() {
+				let (start, end) = Self::timestamps(duration, elapsed);
+				let timestamps = Timestamps::new().start(start).end(end);
 
-			let activity = activity.timestamps(timestamps);
-			Some(activity)
+				let activity = activity.timestamps(timestamps);
+				Some(activity)
+			} else {
+				None
+			}
 		} else {
 			None
-		};
+		}
+	}
 
+	pub fn state(&mut self, state: &State) {
+		let activity = self.activity(state);
 		if let Some(activity) = activity {
 			self.0.set_activity(activity).unwrap();
+		} else {
+			self.0.clear_activity().unwrap();
 		}
 	}
 }
@@ -67,5 +75,26 @@ impl Debug for Discord {
 impl Drop for Discord {
 	fn drop(&mut self) {
 		let _ = self.0.clear_activity();
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::Discord;
+	use std::time::Duration;
+
+	#[test]
+	fn time() {
+		let duration = Duration::from_secs(100);
+		let elapsed = Duration::ZERO;
+
+		let (start, end) = Discord::timestamps(duration, elapsed);
+		assert_eq!(end - start, duration.as_millis() as i64);
+
+		let duration = Duration::from_secs(50);
+		let elapsed = Duration::from_secs(25);
+
+		let (start, end) = Discord::timestamps(duration, elapsed);
+		assert_eq!(end - start, duration.as_millis() as i64);
 	}
 }
