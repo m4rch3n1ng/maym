@@ -8,7 +8,8 @@ use crate::{
 	ui::utils as ui,
 };
 use camino::{Utf8Path, Utf8PathBuf};
-use may_clack::{cancel, error::ClackError, input, intro, outro};
+use itertools::Itertools;
+use may_clack::{cancel, error::ClackError, input, intro, multi_input, multi_select, outro};
 use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use ratatui::{
@@ -20,6 +21,7 @@ use std::{
 	borrow::Cow,
 	fmt::Display,
 	fs,
+	hash::Hash,
 	ops::{Deref, DerefMut},
 	path::PathBuf,
 	str::FromStr,
@@ -334,6 +336,24 @@ impl List {
 	}
 }
 
+impl Hash for List {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.path.hash(state);
+	}
+}
+
+impl Ord for List {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		self.path.cmp(&other.path)
+	}
+}
+
+impl PartialOrd for List {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
 impl FromStr for List {
 	type Err = ConfigError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -461,7 +481,7 @@ impl Config {
 		println!();
 		intro!(<&str as OwoColorize>::reversed(&" setup config "));
 
-		let config = Config::init().ok();
+		let mut config = Config::init().ok();
 
 		let vol = config.as_ref().and_then(|config| config.vol);
 		let vol = input("volume increase amount")
@@ -477,7 +497,34 @@ impl Config {
 			.cancel(do_cancel)
 			.maybe_parse::<u64>()?;
 
-		let lists = config.map(|conf| conf.lists).unwrap_or_default();
+		let prev_ls = config
+			.as_mut()
+			.map(|config| config.lists.drain(..).unique().collect::<Vec<_>>())
+			.unwrap_or_default();
+		let mut prev_ls = if !prev_ls.is_empty() {
+			let mut q = multi_select("what lists do you want to remove?");
+			for list in &prev_ls {
+				q.option(list, list);
+			}
+
+			let to_remove = q.interact()?;
+
+			prev_ls
+				.iter()
+				.filter(|l| !to_remove.contains(l))
+				.cloned()
+				.collect::<Vec<_>>()
+		} else {
+			prev_ls
+		};
+
+		let mut lists = multi_input("what lists do you want to add?")
+			.min(0)
+			.cancel(do_cancel)
+			.parse::<List>()?;
+
+		lists.append(&mut prev_ls);
+		lists.sort();
 
 		outro!();
 
