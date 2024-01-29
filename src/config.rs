@@ -265,21 +265,23 @@ impl Serialize for List {
 }
 
 impl List {
-	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Option<Vec<List>>, D::Error>
+	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Vec<List>, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
-		let paths_or: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data)?;
-		let lists = paths_or.map(|lists| lists.into_iter().flat_map(List::new).collect());
+		let paths: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data).unwrap();
+		let paths = paths.unwrap_or_default();
+		let lists = paths.into_iter().flat_map(List::new).collect();
 		Ok(lists)
 	}
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Vec::is_empty")]
 	#[serde(deserialize_with = "List::maybe_deserialize")]
-	lists: Option<Vec<List>>,
+	#[serde(default)]
+	lists: Vec<List>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	seek: Option<u64>,
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -295,7 +297,7 @@ impl Config {
 
 	#[inline]
 	pub fn lists(&self) -> &[List] {
-		self.lists.as_deref().unwrap_or_default()
+		&self.lists
 	}
 
 	#[inline]
