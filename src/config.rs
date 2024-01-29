@@ -28,7 +28,7 @@ pub enum ConfigError {
 	ListDoesntExist(Utf8PathBuf),
 }
 
-/// [`Child`] struct of [`List`]
+/// [`Child`] of [`List`]
 ///
 /// created via [`List::children`]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,7 +177,7 @@ impl List {
 	}
 
 	// todo error handling
-	/// reads files in [`List`] and returns a vec of [`Child`] structs
+	/// reads files in [`List`] and returns a vec of [`Child`]
 	pub fn children(&self) -> Vec<Child> {
 		let read = fs::read_dir(&self.path).unwrap();
 		let mut children = read
@@ -207,7 +207,7 @@ impl List {
 		other.ancestors().any(|p| self == &p)
 	}
 
-	/// format [`List`] into [`Line`] struct for ratatui
+	/// format [`List`] into [`ratatui::text::Line`] struct for ratatui
 	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.path.as_str();
 
@@ -318,24 +318,31 @@ mod test {
 	use camino::Utf8PathBuf;
 	use std::cmp::Ordering;
 
+	/// create [`List`]
+	///
+	/// # Errors
+	///
+	/// errors when the path doesn't exist
 	fn list<P: Into<Utf8PathBuf>>(path: P) -> Result<List, ConfigError> {
 		let path = path.into();
 		List::new(path)
 	}
 
+	/// create [`Child::List`]
 	fn child<P: Into<Utf8PathBuf>>(path: P) -> Child {
 		let path = path.into();
 		let list = List { path, parent: None };
 		Child::List(list)
 	}
 
+	/// create [`Child::Mp3`]
 	fn mp3<P: Into<Utf8PathBuf>>(path: P) -> Child {
 		let path = path.into();
 		Child::Mp3(path)
 	}
 
 	#[test]
-	fn list_contains() -> Result<(), color_eyre::eyre::Error> {
+	fn list_contains() -> color_eyre::Result<()> {
 		let mock = list("mock/list 01")?;
 
 		let one = mock.contains("mock/list 01/track 00.mp3".into());
@@ -360,7 +367,7 @@ mod test {
 	}
 
 	#[test]
-	fn list_find() -> Result<(), color_eyre::eyre::Error> {
+	fn list_find() -> color_eyre::Result<()> {
 		let mock = list("mock/list 01")?;
 
 		let one = Utf8PathBuf::from("mock/list 01");
@@ -407,7 +414,7 @@ mod test {
 	}
 
 	#[test]
-	fn children() -> Result<(), color_eyre::eyre::Error> {
+	fn children() -> color_eyre::Result<()> {
 		let mock = list("mock/list 01")?;
 		let comp = vec![
 			child("mock/list 01/sub 01"),

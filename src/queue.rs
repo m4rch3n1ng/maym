@@ -618,7 +618,7 @@ mod test {
 	}
 
 	#[test]
-	fn seq() -> Result<(), color_eyre::eyre::Error> {
+	fn seq() -> color_eyre::Result<()> {
 		let t0 = track("mock/list 01/track 00.mp3")?;
 		let t1 = track("mock/list 01/track 01.mp3")?;
 		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
@@ -650,7 +650,7 @@ mod test {
 	}
 
 	#[test]
-	fn last_seq() -> Result<(), color_eyre::eyre::Error> {
+	fn last_seq() -> color_eyre::Result<()> {
 		let t1 = track("mock/list 01/track 01.mp3")?;
 		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
 		let t5 = track("mock/list 01/sub 01/track 05.mp3")?;
@@ -680,7 +680,7 @@ mod test {
 	}
 
 	#[test]
-	fn shuf() -> Result<(), color_eyre::eyre::Error> {
+	fn shuf() -> color_eyre::Result<()> {
 		let mut player = Player::new()?;
 		let mut queue = queue("mock/list 01")?;
 
@@ -711,7 +711,7 @@ mod test {
 	}
 
 	#[test]
-	fn idx() -> Result<(), color_eyre::eyre::Error> {
+	fn idx() -> color_eyre::Result<()> {
 		let t1 = track("mock/list 01/track 01.mp3")?;
 		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
 
@@ -736,7 +736,7 @@ mod test {
 	}
 
 	#[test]
-	fn path() -> Result<(), color_eyre::eyre::Error> {
+	fn path() -> color_eyre::Result<()> {
 		let t0 = track("mock/list 01/track 00.mp3")?;
 		let t4 = track("mock/list 01/sub 01/track 04.mp3")?;
 
@@ -761,7 +761,7 @@ mod test {
 	}
 
 	#[test]
-	fn dot_queue() -> Result<(), color_eyre::eyre::Error> {
+	fn dot_queue() -> color_eyre::Result<()> {
 		let mut queue = queue("mock/list 01")?;
 		let list02 = list("mock/list 02")?;
 
@@ -795,7 +795,7 @@ mod test {
 	}
 
 	#[test]
-	fn queue_state() -> Result<(), color_eyre::eyre::Error> {
+	fn queue_state() -> color_eyre::Result<()> {
 		let empty = state::<&str>(None, None)?;
 		let queue = Queue::state(&empty)?;
 
