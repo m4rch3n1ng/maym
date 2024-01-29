@@ -265,7 +265,7 @@ fn main() -> color_eyre::Result<()> {
 	let cli = Cli::parse();
 	if let Some(Command::Config) = cli.cmd {
 		let config = Config::ask()?;
-		println!("config {:?}", config);
+		config.write()?;
 	} else {
 		let mut app = Application::new().wrap_err("music error")?;
 		app.start().wrap_err("music error")?;

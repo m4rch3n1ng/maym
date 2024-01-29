@@ -20,8 +20,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::{
 	borrow::Cow,
 	fmt::Display,
-	fs,
+	fs::{self, File},
 	hash::Hash,
+	io::{BufWriter, Write},
 	ops::{Deref, DerefMut},
 	path::PathBuf,
 	str::FromStr,
@@ -535,6 +536,29 @@ impl Config {
 			accent,
 			lists,
 		})
+	}
+
+	/// write [`Config`] to file
+	pub fn write(&self) -> Result<(), ConfigError> {
+		// if initial `File::create` fails,
+		// try to create dir and try again
+		let file = match File::create(&*CONFIG_PATH) {
+			Ok(file) => file,
+			Err(_) => {
+				fs::create_dir_all(&*CONFIG_DIR)?;
+				File::create(&*CONFIG_PATH)?
+			}
+		};
+		let mut file = BufWriter::new(file);
+
+		let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
+		let mut json_serializer = serde_json::Serializer::with_formatter(&mut file, formatter);
+
+		self.serialize(&mut json_serializer)?;
+		writeln!(file)?;
+
+		file.flush()?;
+		Ok(())
 	}
 
 	/// get reference to [`Config::lists`]
