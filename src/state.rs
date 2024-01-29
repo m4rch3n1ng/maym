@@ -54,6 +54,7 @@ impl State {
 			.unwrap_or_default()
 	}
 
+	#[inline]
 	pub fn elapsed_duration(&self) -> Option<(Duration, Duration)> {
 		self.elapsed.zip(self.duration)
 	}

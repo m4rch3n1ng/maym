@@ -177,8 +177,8 @@ impl Display for Track {
 			write!(f, "{:#02} ", track)?;
 		}
 
-		let title = self.tag.title().unwrap_or("no title");
-		let artist = self.tag.artist().unwrap_or("no artist");
+		let title = self.tag.title().unwrap_or("unknown title");
+		let artist = self.tag.artist().unwrap_or("unknown artist");
 
 		write!(f, "{} ~ {}", title, artist)
 	}

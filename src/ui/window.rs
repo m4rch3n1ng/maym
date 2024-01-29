@@ -22,14 +22,13 @@ pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 		.padding(Padding::new(4, 4, 2, 2));
 
 	if let Some(track) = state.track.as_ref() {
-		let title = track
-			.title()
-			.map_or(Line::styled("track has no title", dim_italic), |title| {
-				Line::styled(title, bold)
-			});
+		let title = track.title().map_or_else(
+			|| Line::styled("unknown title", dim_italic),
+			|title| Line::styled(title, bold),
+		);
 		let artist = track
 			.artist()
-			.map_or(Line::styled("track has no artist", dim_italic), Line::from);
+			.map_or_else(|| Line::styled("unknown artist", dim_italic), Line::from);
 
 		let text = if let Some(album) = track.album() {
 			let album = Line::styled(album, dim);
