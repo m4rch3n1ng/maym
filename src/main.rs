@@ -124,7 +124,9 @@ impl Application {
 
 		match (key.code, key.modifiers) {
 			// global
-			(KeyCode::Char('q' | 'Q'), _) => return Err(MusicError::Quit),
+			(KeyCode::Char('q' | 'Q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+				return Err(MusicError::Quit)
+			}
 			// player
 			(KeyCode::Char(' '), KeyModifiers::ALT) | (KeyCode::Char('k'), KeyModifiers::NONE) => {
 				self.player.toggle();
