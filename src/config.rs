@@ -272,7 +272,7 @@ impl List {
 	where
 		D: Deserializer<'de>,
 	{
-		let paths: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data).unwrap();
+		let paths: Option<Vec<Utf8PathBuf>> = Deserialize::deserialize(data)?;
 		let paths = paths.unwrap_or_default();
 		let lists = paths.into_iter().flat_map(List::new).collect();
 		Ok(lists)
