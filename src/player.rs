@@ -125,6 +125,7 @@ impl From<libmpv::Error> for PlayerError {
 	}
 }
 
+/// wrapper struct around [`libmpv::Mpv`]
 pub struct Player(Mpv);
 
 impl Debug for Player {

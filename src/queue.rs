@@ -588,17 +588,32 @@ mod test {
 	use camino::{Utf8Path, Utf8PathBuf};
 	use std::collections::VecDeque;
 
+	/// create [`Track`]
+	///
+	/// # Errors
+	///
+	/// returns error when path doesn't exist or is directory
 	fn track<P: Into<Utf8PathBuf>>(path: P) -> Result<Track, QueueError> {
 		let path = path.into();
 		Track::new(path)
 	}
 
+	/// read path into vec of [`Track`]
+	///
+	/// # Errors
+	///
+	/// returns error when path doesn't exist or is not a directory
 	fn list<P: AsRef<Utf8Path>>(path: P) -> Result<Vec<Track>, QueueError> {
 		let mut list = Track::directory(path)?;
 		list.sort();
 		Ok(list)
 	}
 
+	/// create mock [`Queue`] in path
+	///
+	/// # Errors
+	///
+	/// returns error when path doesn't exist or is not a directory
 	fn queue<P: Into<Utf8PathBuf>>(path: P) -> Result<Queue, QueueError> {
 		let path = path.into();
 
@@ -774,6 +789,7 @@ mod test {
 		Ok(())
 	}
 
+	/// create mock [`State`]
 	fn state<P: Into<Utf8PathBuf>>(
 		queue: Option<P>,
 		track: Option<P>,
@@ -835,6 +851,7 @@ mod test {
 		Ok(())
 	}
 
+	/// create [`serde_json`] string deserializer
 	fn deserializer(val: &str) -> serde_json::de::Deserializer<serde_json::de::StrRead> {
 		serde_json::de::Deserializer::from_str(val)
 	}

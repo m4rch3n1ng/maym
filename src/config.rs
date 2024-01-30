@@ -12,7 +12,10 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::{fs, time::Duration};
 use thiserror::Error;
 
-static PATH: Lazy<Utf8PathBuf> =
+/// path for config file
+///
+/// todo make dynamic
+static CONFIG_PATH: Lazy<Utf8PathBuf> =
 	Lazy::new(|| Utf8PathBuf::from("/home/may/.config/m4rch/player/config.json"));
 
 #[derive(Debug, Error)]
@@ -125,8 +128,8 @@ impl Ord for Child {
 			(Child::Mp3(p1), Child::Mp3(p2)) => {
 				p1.as_str().to_lowercase().cmp(&p2.as_str().to_lowercase())
 			}
-			(&Child::List(_), &Child::Mp3(_)) => std::cmp::Ordering::Less,
-			(&Child::Mp3(_), &Child::List(_)) => std::cmp::Ordering::Greater,
+			(Child::List(_), Child::Mp3(_)) => std::cmp::Ordering::Less,
+			(Child::Mp3(_), Child::List(_)) => std::cmp::Ordering::Greater,
 		}
 	}
 }
@@ -290,7 +293,7 @@ pub struct Config {
 
 impl Config {
 	pub fn init() -> Result<Self, ConfigError> {
-		let file = fs::read_to_string(&*PATH)?;
+		let file = fs::read_to_string(&*CONFIG_PATH)?;
 		let config = serde_json::from_str(&file)?;
 		Ok(config)
 	}
