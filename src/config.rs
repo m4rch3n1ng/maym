@@ -19,7 +19,7 @@ use std::{
 	fmt::Display,
 	fs,
 	ops::{Deref, DerefMut},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	str::FromStr,
 	time::Duration,
 };
@@ -81,8 +81,12 @@ impl From<std::io::Error> for ConfigError {
 pub enum Child {
 	/// list directory
 	List(List),
+	/// list directory with non-utf8 path
+	NonUtf8List(PathBuf),
 	/// audio file
 	Mp3(Utf8PathBuf),
+	/// audio file with non-utf8 path
+	NonUtf8Mp3(PathBuf),
 }
 
 impl Child {
@@ -100,6 +104,18 @@ impl Child {
 			Child::Mp3(ref path) => {
 				let path = path.file_name().unwrap_or_else(|| path.as_str());
 				Cow::Borrowed(path)
+			},
+			Child::NonUtf8List(ref path) => {
+				let path = path.file_name().unwrap_or_else(|| path.as_os_str());
+				let path = Path::new(path);
+				let name = format!("{}/", path.display());
+				Cow::Owned(name)
+			}
+			Child::NonUtf8Mp3(ref path) => {
+				let path = path.file_name().unwrap_or_else(|| path.as_os_str());
+				let path = Path::new(path);
+				let name = path.display().to_string();
+				Cow::Owned(name)
 			}
 		}
 	}
@@ -108,7 +124,7 @@ impl Child {
 	pub fn list(&self) -> Option<&List> {
 		match self {
 			Child::List(list) => Some(list),
-			Child::Mp3(_) => None,
+			_ => None,
 		}
 	}
 
@@ -146,6 +162,10 @@ impl Child {
 					Line::raw(name)
 				}
 			}
+			Child::NonUtf8List(_) => {
+				ui::widgets::line(name, Style::default().dim().crossed_out().underlined())
+			}
+			Child::NonUtf8Mp3(_) => ui::widgets::line(name, Style::default().dim().crossed_out()),
 		}
 	}
 }
@@ -154,7 +174,7 @@ impl PartialEq<List> for Child {
 	fn eq(&self, other: &List) -> bool {
 		match *self {
 			Child::List(ref list) => list.eq(other),
-			Child::Mp3(_) => false,
+			_ => false,
 		}
 	}
 }
@@ -162,8 +182,8 @@ impl PartialEq<List> for Child {
 impl PartialEq<Track> for Child {
 	fn eq(&self, other: &Track) -> bool {
 		match *self {
-			Child::List(_) => false,
 			Child::Mp3(ref path) => path.eq(&other.path),
+			_ => false,
 		}
 	}
 }
@@ -175,8 +195,21 @@ impl Ord for Child {
 				UniCase::new(&l1.path).cmp(&UniCase::new(&l2.path))
 			}
 			(Child::Mp3(p1), Child::Mp3(p2)) => UniCase::new(&p1).cmp(&UniCase::new(&p2)),
-			(Child::List(_), Child::Mp3(_)) => std::cmp::Ordering::Less,
-			(Child::Mp3(_), Child::List(_)) => std::cmp::Ordering::Greater,
+			(Child::List(_) | Child::NonUtf8List(_), Child::Mp3(_) | Child::NonUtf8Mp3(_)) => {
+				std::cmp::Ordering::Less
+			}
+			(Child::Mp3(_) | Child::NonUtf8Mp3(_), Child::List(_) | Child::NonUtf8List(_)) => {
+				std::cmp::Ordering::Greater
+			}
+			// fuck
+			(Child::List(utf_l), Child::NonUtf8List(non_l)) => utf_l.path.as_std_path().cmp(non_l),
+			(Child::NonUtf8List(non_l), Child::List(utf_l)) => {
+				non_l.as_path().cmp(utf_l.path.as_ref())
+			}
+			(Child::Mp3(utf_p), Child::NonUtf8Mp3(non_p)) => utf_p.as_std_path().cmp(non_p),
+			(Child::NonUtf8Mp3(non_p), Child::Mp3(utf_p)) => non_p.as_path().cmp(utf_p.as_ref()),
+			(Child::NonUtf8List(n1), Child::NonUtf8List(n2))
+			| (Child::NonUtf8Mp3(n1), Child::NonUtf8Mp3(n2)) => n1.cmp(n2),
 		}
 	}
 }
@@ -234,19 +267,32 @@ impl List {
 		let read = fs::read_dir(&self.path).unwrap();
 		let mut children = read
 			.flatten()
-			// todo display non utf8
 			.map(|entry| entry.path())
-			.flat_map(Utf8PathBuf::try_from)
-			.filter_map(|path| {
-				if path.is_dir() {
-					let list = List::with_parent(path, self.clone()).unwrap();
-					let child = Child::List(list);
-					Some(child)
-				} else if path.extension().map_or(false, |ext| ext == "mp3") {
-					let child = Child::Mp3(path);
-					Some(child)
-				} else {
-					None
+			.map(Utf8PathBuf::try_from)
+			.filter_map(|path| match path {
+				Ok(path) => {
+					if path.is_dir() {
+						let list = List::with_parent(path, self.clone()).unwrap();
+						let child = Child::List(list);
+						Some(child)
+					} else if path.extension().map_or(false, |ext| ext == "mp3") {
+						let child = Child::Mp3(path);
+						Some(child)
+					} else {
+						None
+					}
+				}
+				Err(path) => {
+					let path = path.into_path_buf();
+					if path.is_dir() {
+						let child = Child::NonUtf8List(path);
+						Some(child)
+					} else if path.extension().map_or(false, |ext| ext == "mp3") {
+						let child = Child::NonUtf8Mp3(path);
+						Some(child)
+					} else {
+						None
+					}
 				}
 			})
 			.collect::<Vec<_>>();
@@ -285,7 +331,7 @@ impl List {
 		} else if self.contains(other) {
 			self.children().into_iter().find_map(|child| match child {
 				Child::List(list) => list.find(other),
-				Child::Mp3(_) => None,
+				_ => None,
 			})
 		} else {
 			None

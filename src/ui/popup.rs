@@ -542,6 +542,7 @@ impl Lists {
 					queue.queue(&parent.path)?;
 					queue.select_path(&path, player)?;
 				}
+				_ => (),
 			},
 		}
 
@@ -565,6 +566,7 @@ impl Lists {
 					queue.queue(&parent.path)?;
 					queue.select_path(&track, player)?;
 				}
+				_ => (),
 			},
 		}
 
