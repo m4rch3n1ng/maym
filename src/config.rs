@@ -510,7 +510,7 @@ impl Config {
 mod test {
 	use super::{Child, ColorWrap, ConfigError, List};
 	use camino::Utf8PathBuf;
-	use std::cmp::Ordering;
+	use std::{cmp::Ordering, path::PathBuf};
 
 	/// create [`List`]
 	///
@@ -533,6 +533,18 @@ mod test {
 	fn mp3<P: Into<Utf8PathBuf>>(path: P) -> Child {
 		let path = path.into();
 		Child::Mp3(path)
+	}
+
+	/// create [`Child::NonUtf8List`]
+	fn non_list<P: Into<PathBuf>>(path: P) -> Child {
+		let path = path.into();
+		Child::NonUtf8List(path)
+	}
+
+	/// create [`Child::NonUtf8Mp3`]
+	fn non_mp3<P: Into<PathBuf>>(path: P) -> Child {
+		let path = path.into();
+		Child::NonUtf8Mp3(path)
 	}
 
 	#[test]
@@ -657,6 +669,36 @@ mod test {
 		assert_eq!(children, comp);
 
 		Ok(())
+	}
+
+	#[test]
+	fn non_utf8_ord() {
+		let nc0 = non_mp3("00");
+		let nl0 = non_list("00");
+		let wc0 = mp3("00");
+		let wl0 = child("00");
+
+		let nc1 = non_mp3("01");
+		let nl1 = non_list("01");
+		let wc1 = mp3("01");
+		let wl1 = child("01");
+
+		assert_eq!(nc0.cmp(&wc0), Ordering::Equal);
+		assert_eq!(nl0.cmp(&wl0), Ordering::Equal);
+		assert_eq!(nc0.cmp(&nc0), Ordering::Equal);
+		assert_eq!(wc0.cmp(&wc0), Ordering::Equal);
+
+		assert_eq!(wc0.cmp(&wl0), Ordering::Greater);
+		assert_eq!(wc0.cmp(&nl0), Ordering::Greater);
+		assert_eq!(nl0.cmp(&nc0), Ordering::Less);
+		assert_eq!(wl1.cmp(&nc0), Ordering::Less);
+
+		assert_eq!(nc1.cmp(&wc0), Ordering::Greater);
+		assert_eq!(wc0.cmp(&nc1), Ordering::Less);
+		assert_eq!(nl1.cmp(&nl0), Ordering::Greater);
+		assert_eq!(nl0.cmp(&nl1), Ordering::Less);
+		assert_eq!(wc1.cmp(&nc0), Ordering::Greater);
+		assert_eq!(nc0.cmp(&wc1), Ordering::Less);
 	}
 
 	#[test]
