@@ -281,14 +281,14 @@ impl List {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	vol: Option<u64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	seek: Option<u64>,
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	#[serde(deserialize_with = "List::maybe_deserialize")]
 	#[serde(default)]
 	lists: Vec<List>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	seek: Option<u64>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	vol: Option<u64>,
 }
 
 impl Config {
