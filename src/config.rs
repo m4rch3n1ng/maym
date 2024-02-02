@@ -9,7 +9,7 @@ use ratatui::{
 	text::Line,
 };
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{fs, time::Duration};
+use std::{borrow::Cow, fs, time::Duration};
 use thiserror::Error;
 
 /// path for config file
@@ -42,10 +42,17 @@ pub enum Child {
 
 impl Child {
 	/// return name of child
-	fn name(&self) -> &str {
+	fn name(&self) -> Cow<'_, str> {
 		match *self {
-			Child::List(ref list) => list.path.file_name().unwrap(),
-			Child::Mp3(ref path) => path.file_name().unwrap(),
+			Child::List(ref list) => {
+				let path = list.path.file_name().unwrap_or_else(|| list.path.as_str());
+				let path = format!("{}/", path);
+				Cow::Owned(path)
+			}
+			Child::Mp3(ref path) => {
+				let path = path.file_name().unwrap_or_else(|| path.as_str());
+				Cow::Borrowed(path)
+			}
 		}
 	}
 
@@ -69,19 +76,18 @@ impl Child {
 		let name = self.name();
 		match *self {
 			Child::List(ref list) => {
-				let fmt = format!("{}/", name);
 				let underline = Style::default().underlined();
 				let accent = utils::style::accent().underlined();
 				if let Some(path) = queue.path().map(AsRef::as_ref) {
 					if list == &path {
-						Line::styled(fmt, accent.bold())
+						Line::styled(name, accent.bold())
 					} else if self.contains(path) {
-						Line::styled(fmt, accent)
+						Line::styled(name, accent)
 					} else {
-						Line::styled(fmt, underline)
+						Line::styled(name, underline)
 					}
 				} else {
-					Line::styled(fmt, underline)
+					Line::styled(name, underline)
 				}
 			}
 			Child::Mp3(ref path) => {
@@ -89,10 +95,10 @@ impl Child {
 					if track == path {
 						Line::styled(name, utils::style::accent().bold())
 					} else {
-						Line::from(name)
+						Line::raw(name)
 					}
 				} else {
-					Line::from(name)
+					Line::raw(name)
 				}
 			}
 		}
