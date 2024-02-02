@@ -191,23 +191,28 @@ impl PartialEq<Track> for Child {
 impl Ord for Child {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		match (self, other) {
+			// sort case-insensitive when possible
 			(Child::List(l1), Child::List(l2)) => {
 				UniCase::new(&l1.path).cmp(&UniCase::new(&l2.path))
 			}
 			(Child::Mp3(p1), Child::Mp3(p2)) => UniCase::new(&p1).cmp(&UniCase::new(&p2)),
+			// lists should always come before files
 			(Child::List(_) | Child::NonUtf8List(_), Child::Mp3(_) | Child::NonUtf8Mp3(_)) => {
 				std::cmp::Ordering::Less
 			}
 			(Child::Mp3(_) | Child::NonUtf8Mp3(_), Child::List(_) | Child::NonUtf8List(_)) => {
 				std::cmp::Ordering::Greater
 			}
-			// fuck
+			// non-utf8 sorting
+			// sort list with non-utf8 list
 			(Child::List(utf_l), Child::NonUtf8List(non_l)) => utf_l.path.as_std_path().cmp(non_l),
 			(Child::NonUtf8List(non_l), Child::List(utf_l)) => {
 				non_l.as_path().cmp(utf_l.path.as_ref())
 			}
+			// sort mp3 with non-utf8 mp3
 			(Child::Mp3(utf_p), Child::NonUtf8Mp3(non_p)) => utf_p.as_std_path().cmp(non_p),
 			(Child::NonUtf8Mp3(non_p), Child::Mp3(utf_p)) => non_p.as_path().cmp(utf_p.as_ref()),
+			// sort non-utf8 with itself
 			(Child::NonUtf8List(n1), Child::NonUtf8List(n2))
 			| (Child::NonUtf8Mp3(n1), Child::NonUtf8Mp3(n2)) => n1.cmp(n2),
 		}
