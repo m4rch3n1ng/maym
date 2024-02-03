@@ -64,14 +64,6 @@ impl Child {
 		}
 	}
 
-	/// check if [`Child::List`] contains path, or if [`Child::Mp3`] is path
-	fn contains(&self, other: &Utf8Path) -> bool {
-		match &self {
-			Child::List(list) => other.ancestors().any(|p| list == &p),
-			Child::Mp3(path) => path == other,
-		}
-	}
-
 	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.name();
 		match *self {
@@ -81,7 +73,7 @@ impl Child {
 				if let Some(path) = queue.path().map(AsRef::as_ref) {
 					if list == &path {
 						Line::styled(name, accent.bold())
-					} else if self.contains(path) {
+					} else if list.contains(path) {
 						Line::styled(name, accent)
 					} else {
 						Line::styled(name, underline)
