@@ -19,9 +19,10 @@ use ratatui::{
 };
 #[cfg(feature = "mpris")]
 use std::sync::mpsc::TryRecvError;
+#[cfg(feature = "mpris")]
+use std::sync::{Arc, Mutex};
 use std::{
 	io,
-	sync::{Arc, Mutex},
 	time::{Duration, Instant},
 };
 use thiserror::Error;
@@ -53,7 +54,10 @@ enum MusicError {
 struct Application {
 	pub player: Player,
 	pub config: Config,
+	#[cfg(feature = "mpris")]
 	pub state: Arc<Mutex<State>>,
+	#[cfg(not(feature = "mpris"))]
+	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
 	#[cfg(feature = "mpris")]
@@ -74,6 +78,7 @@ impl Application {
 
 		let ui = Ui::new(&queue, &config);
 
+		#[cfg(feature = "mpris")]
 		let state = Arc::new(Mutex::new(state));
 		#[cfg(feature = "mpris")]
 		let mpris = Mpris::new(Arc::clone(&state));
@@ -98,6 +103,9 @@ impl Application {
 		let mut ticks = 0;
 
 		loop {
+			#[cfg(feature = "mpris")]
+			terminal.draw(|f| self.ui.draw_lock(f, &self.state, &self.queue))?;
+			#[cfg(not(feature = "mpris"))]
 			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
 			#[cfg(feature = "mpris")]
@@ -112,9 +120,19 @@ impl Application {
 					MprisEvent::Pause => self.player.pause(true),
 					MprisEvent::Play => self.player.pause(false),
 					MprisEvent::Seek(duration) => {
+						#[cfg(feature = "mpris")]
+						let state = self.state.lock().unwrap();
+						#[cfg(feature = "mpris")]
+						self.queue.seek_i(&mut self.player, &state, duration);
+						#[cfg(not(feature = "mpris"))]
 						self.queue.seek_i(&mut self.player, &self.state, duration);
 					}
 					MprisEvent::SeekBack(duration) => {
+						#[cfg(feature = "mpris")]
+						let state = self.state.lock().unwrap();
+						#[cfg(feature = "mpris")]
+						self.queue.seek_d(&mut self.player, &state, duration);
+						#[cfg(not(feature = "mpris"))]
 						self.queue.seek_d(&mut self.player, &self.state, duration);
 					}
 					MprisEvent::Shuffle(shuffle) => {
@@ -142,10 +160,15 @@ impl Application {
 			}
 
 			if last.elapsed() >= self.tick {
-				let mut state = self.state.lock().unwrap();
+				#[cfg(feature = "mpris")]
+				let state = &mut self.state.lock().unwrap();
+				#[cfg(not(feature = "mpris"))]
+				let state = &mut self.state;
+
 				state.tick(&self.player, &self.queue, &mut self.ui);
+
 				if !skip_done {
-					self.queue.done(&mut self.player, &state)?;
+					self.queue.done(&mut self.player, state)?;
 				} else {
 					skip_done = false;
 				}
@@ -159,8 +182,6 @@ impl Application {
 				} else {
 					ticks += 1;
 				}
-
-				drop(state);
 			}
 		}
 	}
@@ -225,6 +246,11 @@ impl Application {
 				if self.ui.is_popup() {
 					self.ui.right();
 				} else {
+					#[cfg(feature = "mpris")]
+					let state = self.state.lock().unwrap();
+					#[cfg(feature = "mpris")]
+					self.queue.seek_i(&mut self.player, &state, seek);
+					#[cfg(not(feature = "mpris"))]
 					self.queue.seek_i(&mut self.player, &self.state, seek);
 				}
 			}
@@ -232,6 +258,11 @@ impl Application {
 				if self.ui.is_popup() {
 					self.ui.left();
 				} else {
+					#[cfg(feature = "mpris")]
+					let state = self.state.lock().unwrap();
+					#[cfg(feature = "mpris")]
+					self.queue.seek_d(&mut self.player, &state, seek);
+					#[cfg(not(feature = "mpris"))]
 					self.queue.seek_d(&mut self.player, &self.state, seek);
 				}
 			}
