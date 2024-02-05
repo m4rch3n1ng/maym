@@ -1,5 +1,4 @@
 use std::sync::Mutex;
-
 use self::popup::{Lists, Lyrics, Popup, Tags, Tracks};
 use crate::{
 	config::Config,

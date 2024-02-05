@@ -1,3 +1,5 @@
+#[cfg(feature = "mpris")]
+use self::mpris::{Mpris, MprisEvent};
 use self::{
 	config::Config,
 	player::Player,
@@ -11,11 +13,11 @@ use crossterm::{
 	event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
 	execute, terminal,
 };
-use mpris::{Mpris, MprisEvent};
 use ratatui::{
 	backend::{Backend, CrosstermBackend},
 	terminal::Terminal,
 };
+#[cfg(feature = "mpris")]
 use std::sync::mpsc::TryRecvError;
 use std::{
 	io,
@@ -25,6 +27,7 @@ use std::{
 use thiserror::Error;
 
 mod config;
+#[cfg(feature = "mpris")]
 mod mpris;
 mod player;
 mod queue;
@@ -42,6 +45,7 @@ enum MusicError {
 	#[error("state error")]
 	StateError(#[from] StateError),
 	#[error("try recv error")]
+	#[cfg(feature = "mpris")]
 	TryRecvError(#[from] TryRecvError),
 }
 
@@ -52,6 +56,7 @@ struct Application {
 	pub state: Arc<Mutex<State>>,
 	pub queue: Queue,
 	pub ui: Ui,
+	#[cfg(feature = "mpris")]
 	mpris: Mpris,
 	tick: Duration,
 }
@@ -70,6 +75,7 @@ impl Application {
 		let ui = Ui::new(&queue, &config);
 
 		let state = Arc::new(Mutex::new(state));
+		#[cfg(feature = "mpris")]
 		let mpris = Mpris::new(Arc::clone(&state));
 
 		let tick = Duration::from_millis(100);
@@ -79,6 +85,7 @@ impl Application {
 			state,
 			queue,
 			ui,
+			#[cfg(feature = "mpris")]
 			mpris,
 			tick,
 		};
@@ -93,6 +100,7 @@ impl Application {
 		loop {
 			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
+			#[cfg(feature = "mpris")]
 			if let Some(event) = self.mpris.recv()? {
 				match event {
 					MprisEvent::Next => {
