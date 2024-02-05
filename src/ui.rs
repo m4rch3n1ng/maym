@@ -6,6 +6,7 @@ use crate::{
 	state::State,
 };
 use ratatui::{Frame, layout::Rect};
+#[cfg(feature = "mpris")]
 use std::sync::Mutex;
 
 mod popup;
@@ -40,15 +41,20 @@ impl Ui {
 		}
 	}
 
-	pub fn draw(&mut self, frame: &mut Frame, state: &Mutex<State>, queue: &Queue) {
+	#[cfg(feature = "mpris")]
+	pub fn draw_lock(&mut self, frame: &mut Frame, state: &Mutex<State>, queue: &Queue) {
+		let state = state.lock().unwrap();
+		self.draw(frame, &state, queue);
+	}
+
+	pub fn draw(&mut self, frame: &mut Frame, state: &State, queue: &Queue) {
 		let size = frame.area();
 		let (window, seek) = window::layout(size);
 
-		let state = state.lock().unwrap();
-		window::main(frame, window, &state);
-		window::seek(frame, seek, &state);
+		window::main(frame, window, state);
+		window::seek(frame, seek, state);
 
-		self.popup(frame, window, &state, queue);
+		self.popup(frame, window, state, queue);
 	}
 
 	// todo make generic maybe ?

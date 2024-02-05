@@ -9,7 +9,7 @@ use std::{
 	cmp::Ordering,
 	collections::VecDeque,
 	fmt::{Debug, Display},
-	sync::{Arc, Mutex},
+	sync::Arc,
 	time::Duration,
 };
 use thiserror::Error;
@@ -551,8 +551,7 @@ impl Queue {
 	}
 
 	/// seek backwards in current track
-	pub fn seek_d(&self, player: &mut Player, state: &Mutex<State>, amt: Duration) {
-		let state = state.lock().unwrap();
+	pub fn seek_d(&self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some()
 			&& let Some(elapsed) = state.elapsed()
 		{
@@ -562,8 +561,7 @@ impl Queue {
 	}
 
 	/// seek forward in current track
-	pub fn seek_i(&mut self, player: &mut Player, state: &Mutex<State>, amt: Duration) {
-		let state = state.lock().unwrap();
+	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
 		if self.current.is_some()
 			&& let Some((elapsed, duration)) = state.elapsed_duration()
 		{
