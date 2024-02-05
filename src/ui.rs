@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use self::popup::{Lists, Lyrics, Popup, Tags, Tracks};
 use crate::{
 	config::Config,
@@ -39,14 +41,15 @@ impl Ui {
 		}
 	}
 
-	pub fn draw(&mut self, frame: &mut Frame, state: &State, queue: &Queue) {
+	pub fn draw(&mut self, frame: &mut Frame, state: &Mutex<State>, queue: &Queue) {
 		let size = frame.size();
 		let (window, seek) = window::layout(size);
 
-		window::main(frame, window, state);
-		window::seek(frame, seek, state);
+		let state = state.lock().unwrap();
+		window::main(frame, window, &state);
+		window::seek(frame, seek, &state);
 
-		self.popup(frame, window, state, queue);
+		self.popup(frame, window, &state, queue);
 	}
 
 	// todo make generic maybe ?

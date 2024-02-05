@@ -7,7 +7,9 @@ use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
+use std::{
+	cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, sync::Mutex, time::Duration,
+};
 use thiserror::Error;
 use unicase::UniCase;
 
@@ -315,6 +317,18 @@ impl Queue {
 		self.shuffle = !self.shuffle;
 	}
 
+	/// set shuffle
+	///
+	/// also clears [`Queue::next`] and [`Queue::last`]
+	pub fn set_shuffle(&mut self, shuffle: bool) {
+		if self.shuffle != shuffle {
+			self.next.clear();
+			self.last.clear();
+
+			self.shuffle = shuffle;
+		}
+	}
+
 	/// return queue path
 	#[inline]
 	pub fn path(&self) -> Option<&Utf8Path> {
@@ -552,8 +566,9 @@ impl Queue {
 	}
 
 	/// seek backwards in current track
-	pub fn seek_d(&self, player: &mut Player, state: &State, amt: Duration) {
+	pub fn seek_d(&self, player: &mut Player, state: &Mutex<State>, amt: Duration) {
 		if self.current.is_some() {
+			let state = state.lock().unwrap();
 			if let Some(elapsed) = state.elapsed() {
 				let position = elapsed.saturating_sub(amt);
 				player.seek(position);
@@ -562,8 +577,9 @@ impl Queue {
 	}
 
 	/// seek forward in current track
-	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
+	pub fn seek_i(&mut self, player: &mut Player, state: &Mutex<State>, amt: Duration) {
 		if self.current.is_some() {
+			let state = state.lock().unwrap();
 			if let Some((elapsed, duration)) = state.elapsed_duration() {
 				let position = elapsed.saturating_add(amt);
 

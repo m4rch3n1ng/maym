@@ -248,23 +248,22 @@ impl Player {
 			.expect("couldn't get mute")
 	}
 
-	pub fn i_vol(&mut self, amt: u64) {
-		let vol = self.volume();
-		let vol = u64::min(100, vol.saturating_add(amt));
-
+	pub fn set_volume(&mut self, vol: u64) {
 		self.0
 			.set_property("volume", vol as i64)
 			.map_err(PlayerError::from)
 			.expect("couldn't get volume");
 	}
 
+	pub fn i_vol(&mut self, amt: u64) {
+		let vol = self.volume();
+		let vol = u64::min(100, vol.saturating_add(amt));
+		self.set_volume(vol);
+	}
+
 	pub fn d_vol(&mut self, amt: u64) {
 		let vol = self.volume();
 		let vol = vol.saturating_sub(amt);
-
-		self.0
-			.set_property("volume", vol as i64)
-			.map_err(PlayerError::from)
-			.expect("couldn't set volume");
+		self.set_volume(vol);
 	}
 }
