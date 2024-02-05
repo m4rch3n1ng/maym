@@ -1,9 +1,14 @@
+use crate::state::State;
 use smol::future;
 use std::{
-	sync::mpsc::{Receiver, Sender, channel},
+	collections::HashMap,
+	sync::{
+		Arc, Mutex,
+		mpsc::{Receiver, Sender, channel},
+	},
 	time::Duration,
 };
-use zbus::{connection, interface};
+use zbus::{connection, interface, zvariant::Value};
 
 struct MprisRoot;
 
@@ -42,13 +47,23 @@ impl MprisRoot {
 
 struct MprisPlayer {
 	tx: Sender<MprisEvent>,
+	state: Arc<Mutex<State>>,
 }
 
 // https://specifications.freedesktop.org/mpris-spec/2.2/Player_Interface.html
 #[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
-	// #[zbus(property)]
-	// fn playback_status(&self) -> &'static str {}
+	#[zbus(property)]
+	fn playback_status(&self) -> &'static str {
+		let state = self.state.lock().unwrap();
+		if state.track.is_none() {
+			"Stopped"
+		} else if state.paused {
+			"Paused"
+		} else {
+			"Playing"
+		}
+	}
 
 	#[zbus(property)]
 	fn loop_status(&self) -> &'static str {
@@ -70,12 +85,75 @@ impl MprisPlayer {
 		1.0
 	}
 
-	// #[zbus(property)]
-	// fn volume(&self) -> f64 {}
+	#[zbus(property)]
+	fn shuffle(&self) -> bool {
+		let state = self.state.lock().unwrap();
+		state.shuffle
+	}
 
-	// #[zbus(property)]
-	// microseconds
-	// fn position(&self) -> f64 {}
+	#[zbus(property)]
+	fn set_shuffle(&self, shuffle: bool) {
+		self.tx.send(MprisEvent::Shuffle(shuffle)).unwrap();
+	}
+
+	#[zbus(property)]
+	fn metadata(&self) -> HashMap<&str, Value<'_>> {
+		let state = self.state.lock().unwrap();
+		let mut map = HashMap::new();
+
+		if let Some(duration) = state.duration() {
+			let duration = duration.as_micros() as u64;
+			map.insert("mpris:length", Value::U64(duration));
+		}
+
+		if let Some(track) = &state.track {
+			if let Some(album) = track.album().map(ToOwned::to_owned) {
+				map.insert("xesam:album", Value::Str(album.into()));
+			}
+
+			if let Some(artist) = track.artist().map(ToOwned::to_owned) {
+				map.insert("xesam:artist", Value::Str(artist.into()));
+			}
+
+			if let Some(title) = track.title().map(ToOwned::to_owned) {
+				map.insert("xesam:title", Value::Str(title.into()));
+			}
+
+			if let Some(track) = track.track() {
+				map.insert("xesam:discNumber", Value::U32(track));
+			}
+		}
+
+		map
+	}
+
+	#[zbus(property)]
+	fn volume(&self) -> f64 {
+		let state = self.state.lock().unwrap();
+
+		if state.muted {
+			0.0
+		} else {
+			state.volume as f64 / 100.0
+		}
+	}
+
+	#[zbus(property)]
+	fn set_volume(&self, vol: f64) {
+		if vol.is_nan() {
+			return;
+		}
+
+		let vol = vol.clamp(0.0, 1.0);
+		let vol = vol * 100.0;
+		self.tx.send(MprisEvent::Volume(vol as u8)).unwrap();
+	}
+
+	#[zbus(property)]
+	fn position(&self) -> i64 {
+		let state = self.state.lock().unwrap();
+		state.elapsed().unwrap_or(Duration::ZERO).as_micros() as i64
+	}
 
 	#[zbus(property)]
 	fn can_go_next(&self) -> bool {
@@ -148,6 +226,8 @@ pub enum MprisEvent {
 	Play,
 	Seek(Duration),
 	SeekBack(Duration),
+	Shuffle(bool),
+	Volume(u8),
 }
 
 #[derive(Debug)]
@@ -156,18 +236,16 @@ pub struct Mpris {
 }
 
 impl Mpris {
-	pub fn new() -> Self {
+	pub fn new(state: Arc<Mutex<State>>) -> Self {
 		let (tx, rx) = channel::<MprisEvent>();
 
 		let root = MprisRoot;
-		let player = MprisPlayer { tx };
+		let player = MprisPlayer { tx, state };
 
 		smol::spawn(async {
 			let _ = Mpris::serve(root, player).await;
 		})
 		.detach();
-
-		// std::mem::forget(handle);
 
 		Mpris { rx }
 	}

@@ -18,7 +18,7 @@ use ratatui::{
 };
 use std::{
 	io,
-	sync::mpsc::TryRecvError,
+	sync::{Arc, Mutex, mpsc::TryRecvError},
 	time::{Duration, Instant},
 };
 use thiserror::Error;
@@ -48,7 +48,7 @@ enum MusicError {
 struct Application {
 	pub player: Player,
 	pub config: Config,
-	pub state: State,
+	pub state: Arc<Mutex<State>>,
 	pub queue: Queue,
 	pub ui: Ui,
 	mpris: Mpris,
@@ -66,7 +66,8 @@ impl Application {
 
 		let ui = Ui::new(&queue, &config);
 
-		let mpris = Mpris::new();
+		let state = Arc::new(Mutex::new(state));
+		let mpris = Mpris::new(Arc::clone(&state));
 
 		let tick = Duration::from_millis(100);
 		let app = Application {
@@ -105,6 +106,12 @@ impl Application {
 					MprisEvent::SeekBack(duration) => {
 						self.queue.seek_d(&mut self.player, &self.state, duration);
 					}
+					MprisEvent::Shuffle(shuffle) => {
+						self.queue.set_shuffle(shuffle);
+					}
+					MprisEvent::Volume(vol) => {
+						self.player.set_volume(vol);
+					}
 				}
 			}
 
@@ -124,7 +131,8 @@ impl Application {
 			}
 
 			if last.elapsed() >= self.tick {
-				self.state.tick(&mut self.player, &self.queue, &mut self.ui);
+				let mut state = self.state.lock().unwrap();
+				state.tick(&mut self.player, &self.queue, &mut self.ui);
 				if !skip_done {
 					self.queue.done(&mut self.player);
 				} else {
@@ -135,11 +143,13 @@ impl Application {
 
 				// todo amt
 				if ticks >= 10 {
-					self.state.write()?;
+					state.write()?;
 					ticks = 0;
 				} else {
 					ticks += 1;
 				}
+
+				drop(state);
 			}
 		}
 	}

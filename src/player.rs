@@ -442,4 +442,12 @@ impl Player {
 			.to_process_tx
 			.push(ToProcess::Volume(vol as f32 / 100.));
 	}
+
+	pub fn set_volume(&mut self, vol: u8) {
+		self.volume = vol;
+
+		let _ = self
+			.to_process_tx
+			.push(ToProcess::Volume(vol as f32 / 100.));
+	}
 }
