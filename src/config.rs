@@ -482,7 +482,7 @@ impl Config {
 		println!();
 		intro!(<&str as OwoColorize>::reversed(&" setup config "));
 
-		let mut config = Config::init().ok();
+		let config = Config::init().ok();
 
 		let vol = config.as_ref().and_then(|config| config.vol);
 		let vol = input("volume increase amount")
@@ -499,36 +499,28 @@ impl Config {
 			.cancel(do_cancel)
 			.maybe_parse::<u64>()?;
 
-		let prev_ls = config
-			.as_mut()
-			.map(|config| config.lists.drain(..).unique().collect::<Vec<_>>())
+		let mut prev = config
+			.map(|config| config.lists.into_iter().unique().collect::<Vec<_>>())
 			.unwrap_or_default();
-		let mut prev_ls = if !prev_ls.is_empty() {
+		if !prev.is_empty() {
 			let mut q = multi_select("what lists do you want to remove?");
-			for list in &prev_ls {
+			for list in &prev {
 				q.option(list, list);
 			}
 
-			let to_remove = q.interact()?;
-
-			prev_ls
-				.iter()
-				.filter(|l| !to_remove.contains(l))
-				.cloned()
-				.collect::<Vec<_>>()
-		} else {
-			prev_ls
-		};
+			let to_remove = q.interact()?.into_iter().cloned().collect::<Vec<_>>();
+			prev.retain(|list| !to_remove.contains(list));
+		}
 
 		let mut lists = multi_input("what lists do you want to add?")
 			.min(0)
 			.cancel(do_cancel)
 			.parse::<List>()?;
 
-		lists.append(&mut prev_ls);
-		lists.sort();
-
 		outro!();
+
+		lists.append(&mut prev);
+		lists.sort();
 
 		Ok(Config {
 			vol,
