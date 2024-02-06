@@ -140,6 +140,7 @@ impl PopupTrait for Tags {
 			let num = track.track().map_or(Line::styled("none", dimmed), |num| {
 				Line::from(num.to_string())
 			});
+			let path = Line::from(track.path.as_str());
 
 			vec![
 				Line::styled("title", underline),
@@ -153,6 +154,9 @@ impl PopupTrait for Tags {
 				Line::default(),
 				Line::styled("track", underline),
 				num,
+				Line::default(),
+				Line::styled("path", underline),
+				path,
 			]
 		} else {
 			vec![Line::styled("no track playing", dimmed)]
