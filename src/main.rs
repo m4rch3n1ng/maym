@@ -210,9 +210,8 @@ impl Application {
 
 		let result = self.run(&mut terminal);
 		match result {
-			Err(MusicError::Quit) => Ok(()),
+			Err(MusicError::Quit) | Ok(()) => Ok(()),
 			Err(err) => Err(color_eyre::Report::from(err)),
-			Ok(()) => Ok(()),
 		}
 	}
 }
