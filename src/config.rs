@@ -10,11 +10,19 @@ use crate::{
 use camino::{Utf8Path, Utf8PathBuf};
 use once_cell::sync::Lazy;
 use ratatui::{
-	style::{Style, Stylize},
+	style::{Color, Style, Stylize},
 	text::Line,
 };
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{borrow::Cow, fs, path::PathBuf, time::Duration};
+use std::{
+	borrow::Cow,
+	fmt::Display,
+	fs,
+	ops::{Deref, DerefMut},
+	path::PathBuf,
+	str::FromStr,
+	time::Duration,
+};
 use thiserror::Error;
 use unicase::UniCase;
 
@@ -312,6 +320,79 @@ impl List {
 	}
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ColorWrap(Color);
+
+impl Deref for ColorWrap {
+	type Target = Color;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl DerefMut for ColorWrap {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+#[derive(Debug, Error)]
+#[error("couldn't parse color")]
+struct ParseColorError;
+
+impl FromStr for ColorWrap {
+	type Err = ParseColorError;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let col = s.parse::<Color>().map_err(|_| ParseColorError)?;
+		Ok(ColorWrap(col))
+	}
+}
+
+impl Display for ColorWrap {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let mut color = self.0.to_string();
+		color.make_ascii_lowercase();
+		f.write_str(&color)
+	}
+}
+
+impl Serialize for ColorWrap {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		let mut repr = self.0.to_string();
+		repr.make_ascii_lowercase();
+		serializer.serialize_str(&repr)
+	}
+}
+
+impl<'de> Deserialize<'de> for ColorWrap {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		deserializer.deserialize_str(ColorVis)
+	}
+}
+
+struct ColorVis;
+
+impl<'de> serde::de::Visitor<'de> for ColorVis {
+	type Value = ColorWrap;
+
+	fn expecting(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		fmt.write_str("a color")
+	}
+
+	fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+	where
+		E: serde::de::Error,
+	{
+		v.parse::<ColorWrap>().map_err(serde::de::Error::custom)
+	}
+}
+
 /// config file
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -321,6 +402,9 @@ pub struct Config {
 	/// amount to seek by in tracks in seconds
 	#[serde(skip_serializing_if = "Option::is_none")]
 	seek: Option<u64>,
+	/// ui accent color
+	#[serde(skip_serializing_if = "Option::is_none")]
+	accent: Option<ColorWrap>,
 	/// list of playlists
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	#[serde(deserialize_with = "List::maybe_deserialize")]
@@ -351,6 +435,12 @@ impl Config {
 		Duration::from_secs(seek)
 	}
 
+	/// get and deref [`Config::color`] to [`ratatui::style::Color`]
+	#[inline]
+	pub fn accent(&self) -> Option<Color> {
+		self.accent.as_deref().copied()
+	}
+
 	/// get [`Config::vol`] or unwrap to default value of 5
 	#[inline]
 	pub fn vol(&self) -> u64 {
@@ -360,7 +450,7 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-	use super::{Child, ConfigError, List};
+	use super::{Child, ColorWrap, ConfigError, List};
 	use camino::Utf8PathBuf;
 	use std::cmp::Ordering;
 
@@ -507,6 +597,24 @@ mod test {
 
 		let children = mock.children();
 		assert_eq!(children, comp);
+
+		Ok(())
+	}
+
+	#[test]
+	fn parse_col() -> color_eyre::Result<()> {
+		assert!("cyan".parse::<ColorWrap>().is_ok());
+		assert!("light-gray".parse::<ColorWrap>().is_ok());
+		assert!("Blue".parse::<ColorWrap>().is_ok());
+		assert!("MAGENTA".parse::<ColorWrap>().is_ok());
+		assert!("BRIGHTCYAN".parse::<ColorWrap>().is_ok());
+		assert!("LIGHT_red".parse::<ColorWrap>().is_ok());
+
+		assert!("#008080".parse::<ColorWrap>().is_ok());
+		assert!("10".parse::<ColorWrap>().is_ok());
+
+		assert!("none".parse::<ColorWrap>().is_err());
+		assert!("".parse::<ColorWrap>().is_err());
 
 		Ok(())
 	}

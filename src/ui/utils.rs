@@ -21,10 +21,21 @@ pub mod widgets {
 }
 
 pub mod style {
-	use ratatui::style::{Style, Stylize};
+	use crate::config::Config;
+	use ratatui::style::{Color, Style};
+	use std::sync::OnceLock;
+
+	static ACCENT: OnceLock<Color> = OnceLock::new();
+
+	pub fn load(config: &Config) {
+		if let Some(color) = config.accent() {
+			ACCENT.set(color).expect("load should only be called once");
+		}
+	}
 
 	pub fn accent() -> Style {
-		Style::default().cyan()
+		let color = ACCENT.get().unwrap_or(&Color::Cyan);
+		Style::new().fg(*color)
 	}
 }
 

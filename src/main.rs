@@ -52,6 +52,8 @@ struct Application {
 impl Application {
 	pub fn new() -> color_eyre::Result<Self> {
 		let config = Config::init()?;
+		ui::utils::style::load(&config);
+
 		let state = State::init();
 		let queue = Queue::state(&state)?;
 
