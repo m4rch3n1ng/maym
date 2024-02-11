@@ -9,14 +9,26 @@ use ratatui::{
 	text::Line,
 };
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{borrow::Cow, fs, time::Duration};
+use std::{borrow::Cow, fs, path::PathBuf, time::Duration};
 use thiserror::Error;
 
 /// path for config file
-///
-/// todo make dynamic
-static CONFIG_PATH: Lazy<Utf8PathBuf> =
-	Lazy::new(|| Utf8PathBuf::from("/home/may/.config/m4rch/player/config.json"));
+static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| CONFIG_DIR.join("config.json"));
+pub static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(config_dir);
+
+fn config_dir() -> PathBuf {
+	let mut config = dirs::config_dir().expect("config directory should exist");
+	config.push("maym");
+
+	if config.exists() && !config.is_dir() {
+		fs::remove_file(&config).unwrap();
+		fs::create_dir_all(&config).unwrap();
+	} else if !config.exists() {
+		fs::create_dir_all(&config).unwrap();
+	}
+
+	config
+}
 
 #[derive(Debug, Error)]
 pub enum ConfigError {

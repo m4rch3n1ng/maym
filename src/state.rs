@@ -1,6 +1,7 @@
 //! application [`State`]
 
 use crate::{
+	config::CONFIG_DIR,
 	player::Player,
 	queue::{Queue, Track},
 	ui::Ui,
@@ -11,15 +12,13 @@ use serde::{Deserialize, Serialize};
 use std::{
 	fs::{self, File},
 	io::{BufWriter, Write},
+	path::PathBuf,
 	time::Duration,
 };
 use thiserror::Error;
 
 /// path for state file
-///
-/// todo make dynamic
-static STATE_PATH: Lazy<Utf8PathBuf> =
-	Lazy::new(|| Utf8PathBuf::from("/home/may/.config/m4rch/player/status.json"));
+static STATE_PATH: Lazy<PathBuf> = Lazy::new(|| CONFIG_DIR.join("status.json"));
 
 /// state error
 #[derive(Debug, Error)]
@@ -122,7 +121,13 @@ impl State {
 
 	/// write to file
 	pub fn write(&self) -> Result<(), StateError> {
-		let file = File::create(&*STATE_PATH)?;
+		let file = match File::create(&*STATE_PATH) {
+			Ok(file) => file,
+			Err(_) => {
+				fs::create_dir_all(&*CONFIG_DIR)?;
+				File::create(&*STATE_PATH)?
+			}
+		};
 		let mut file = BufWriter::new(file);
 
 		let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
