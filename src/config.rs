@@ -1,3 +1,8 @@
+//! player config
+//!
+//! contains the [`Config`] struct
+//! and all [`List`] management
+
 use crate::{
 	queue::{Queue, Track},
 	ui::utils,
@@ -14,8 +19,12 @@ use thiserror::Error;
 
 /// path for config file
 static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| CONFIG_DIR.join("config.json"));
+/// path to config directory
 pub static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(config_dir);
 
+/// path to config directory
+///
+/// creates the directory if it doesn't exist
 fn config_dir() -> PathBuf {
 	let mut config = dirs::config_dir().expect("config directory should exist");
 	config.push("maym");
@@ -30,6 +39,7 @@ fn config_dir() -> PathBuf {
 	config
 }
 
+/// config error
 #[derive(Debug, Error)]
 pub enum ConfigError {
 	/// io error
@@ -48,12 +58,17 @@ pub enum ConfigError {
 /// created via [`List::children`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Child {
+	/// list directory
 	List(List),
+	/// audio file
 	Mp3(Utf8PathBuf),
 }
 
 impl Child {
 	/// return name of child
+	///
+	/// the name is just the file_name
+	/// and a trailing slash for directories
 	fn name(&self) -> Cow<'_, str> {
 		match *self {
 			Child::List(ref list) => {
@@ -76,6 +91,11 @@ impl Child {
 		}
 	}
 
+	/// formats [`Child`] into a [`ratatui::text::Line`].
+	///
+	/// - lists are underlined
+	/// - currently playing track / list is accented and bold
+	/// - containing lists are only accented
 	pub fn line(&self, queue: &Queue) -> Line {
 		let name = self.name();
 		match *self {
@@ -153,7 +173,9 @@ impl PartialOrd for Child {
 /// struct that represents a directory
 #[derive(Debug, Clone)]
 pub struct List {
+	/// list path
 	pub path: Utf8PathBuf,
+	/// parent list
 	parent: Option<Box<List>>,
 }
 
@@ -278,6 +300,10 @@ impl Serialize for List {
 }
 
 impl List {
+	/// deserialize Vec of [`List`]
+	///
+	/// ignores non-existant [`List`] items
+	/// and unwrapsan `Option` to an empty vec
 	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Vec<List>, D::Error>
 	where
 		D: Deserializer<'de>,
@@ -289,12 +315,16 @@ impl List {
 	}
 }
 
+/// config file
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
+	/// amount to increase / decrease volume by in percent
 	#[serde(skip_serializing_if = "Option::is_none")]
 	vol: Option<u64>,
+	/// amount to seek by in tracks in seconds
 	#[serde(skip_serializing_if = "Option::is_none")]
 	seek: Option<u64>,
+	/// list of playlists
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	#[serde(deserialize_with = "List::maybe_deserialize")]
 	#[serde(default)]
@@ -302,23 +332,29 @@ pub struct Config {
 }
 
 impl Config {
+	/// read from [`CONFIG_PATH`] and init [`Config`] struct
+	///
+	/// todo gracefully handle malformed json
 	pub fn init() -> Result<Self, ConfigError> {
 		let file = fs::read_to_string(&*CONFIG_PATH)?;
 		let config = serde_json::from_str(&file)?;
 		Ok(config)
 	}
 
+	/// get reference to [`Config::lists`]
 	#[inline]
 	pub fn lists(&self) -> &[List] {
 		&self.lists
 	}
 
+	/// get [`Config::seek`] or unwrap to default value of 5
 	#[inline]
 	pub fn seek(&self) -> Duration {
 		let seek = self.seek.unwrap_or(5);
 		Duration::from_secs(seek)
 	}
 
+	/// get [`Config::vol`] or unwrap to default value of 5
 	#[inline]
 	pub fn vol(&self) -> u64 {
 		self.vol.unwrap_or(5)
