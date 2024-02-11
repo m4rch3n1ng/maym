@@ -8,6 +8,7 @@ use crate::{
 	ui::utils as ui,
 };
 use camino::{Utf8Path, Utf8PathBuf};
+use color_eyre::{eyre::Context, Section, SectionExt};
 use itertools::Itertools;
 use may_clack::{cancel, error::ClackError, input, intro, multi_input, multi_select, outro};
 use once_cell::sync::Lazy;
@@ -471,9 +472,16 @@ impl Config {
 	/// read from [`CONFIG_PATH`] and init [`Config`] struct
 	///
 	/// todo gracefully handle malformed json
-	pub fn init() -> Result<Self, ConfigError> {
-		let file = fs::read_to_string(&*CONFIG_PATH)?;
-		let config = serde_json::from_str(&file)?;
+	pub fn init() -> color_eyre::Result<Self> {
+		let file = fs::read_to_string(&*CONFIG_PATH)
+			.map_err(ConfigError::from)
+			.wrap_err("config error")
+			.with_section(|| {
+				<&str as OwoColorize>::cyan(&"maym config")
+					.to_string()
+					.header("Try running:")
+			})?;
+		let config = serde_json::from_str(&file).wrap_err("config error")?;
 		Ok(config)
 	}
 
@@ -491,7 +499,10 @@ impl Config {
 			.maybe_parse::<u64>()?;
 
 		let accent = config.as_ref().and_then(|conf| conf.accent);
-		let accent = input("accent color").maybe_initial(accent).cancel(do_cancel).maybe_parse::<ColorWrap>()?;
+		let accent = input("accent color")
+			.maybe_initial(accent)
+			.cancel(do_cancel)
+			.maybe_parse::<ColorWrap>()?;
 
 		let seek = config.as_ref().and_then(|config| config.seek);
 		let seek = input("track seek amount (in s)")

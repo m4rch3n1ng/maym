@@ -7,7 +7,7 @@ use self::{
 	ui::{Popups, Ui},
 };
 use clap::Parser;
-use color_eyre::{eyre::Context, owo_colors::OwoColorize, Section, SectionExt};
+use color_eyre::eyre::Context;
 use crossterm::{
 	cursor,
 	event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
@@ -54,9 +54,7 @@ struct Application {
 
 impl Application {
 	pub fn new() -> color_eyre::Result<Self> {
-		let config = Config::init()
-			.wrap_err("config error")
-			.with_section(|| "maym config".cyan().to_string().header("Try running:"))?;
+		let config = Config::init()?;
 		ui::utils::style::load(&config);
 
 		let state = State::init();
