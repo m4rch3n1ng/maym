@@ -16,6 +16,7 @@ use ratatui::{
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{borrow::Cow, fs, path::PathBuf, time::Duration};
 use thiserror::Error;
+use unicase::UniCase;
 
 /// path for config file
 static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| CONFIG_DIR.join("config.json"));
@@ -150,14 +151,10 @@ impl PartialEq<Track> for Child {
 impl Ord for Child {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		match (self, other) {
-			(Child::List(l1), Child::List(l2)) => l1
-				.path
-				.as_str()
-				.to_lowercase()
-				.cmp(&l2.path.as_str().to_lowercase()),
-			(Child::Mp3(p1), Child::Mp3(p2)) => {
-				p1.as_str().to_lowercase().cmp(&p2.as_str().to_lowercase())
+			(Child::List(l1), Child::List(l2)) => {
+				UniCase::new(&l1.path).cmp(&UniCase::new(&l2.path))
 			}
+			(Child::Mp3(p1), Child::Mp3(p2)) => UniCase::new(&p1).cmp(&UniCase::new(&p2)),
 			(Child::List(_), Child::Mp3(_)) => std::cmp::Ordering::Less,
 			(Child::Mp3(_), Child::List(_)) => std::cmp::Ordering::Greater,
 		}
@@ -460,6 +457,42 @@ mod test {
 
 		assert_eq!(zerc.cmp(&zer3), Ordering::Less);
 		assert_eq!(zerc.cmp(&one3), Ordering::Less);
+	}
+
+	#[test]
+	fn case_ord() {
+		let one = mp3("a");
+		let two = mp3("B");
+		let thr = mp3("A");
+		let fou = mp3("b");
+
+		assert_eq!(one.cmp(&two), Ordering::Less);
+		assert_eq!(two.cmp(&one), Ordering::Greater);
+		assert_eq!(thr.cmp(&fou), Ordering::Less);
+		assert_eq!(fou.cmp(&thr), Ordering::Greater);
+
+		assert_eq!(one.cmp(&thr), Ordering::Equal);
+		assert_eq!(thr.cmp(&one), Ordering::Equal);
+		assert_eq!(two.cmp(&fou), Ordering::Equal);
+		assert_eq!(fou.cmp(&two), Ordering::Equal);
+	}
+
+	#[test]
+	fn unicode_ord() {
+		let one = mp3("ä");
+		let two = mp3("Ü");
+		let thr = mp3("Ä");
+		let fou = mp3("ü");
+
+		assert_eq!(one.cmp(&two), Ordering::Less);
+		assert_eq!(two.cmp(&one), Ordering::Greater);
+		assert_eq!(thr.cmp(&fou), Ordering::Less);
+		assert_eq!(fou.cmp(&thr), Ordering::Greater);
+
+		assert_eq!(one.cmp(&thr), Ordering::Equal);
+		assert_eq!(thr.cmp(&one), Ordering::Equal);
+		assert_eq!(two.cmp(&fou), Ordering::Equal);
+		assert_eq!(fou.cmp(&two), Ordering::Equal);
 	}
 
 	#[test]

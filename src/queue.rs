@@ -9,6 +9,7 @@ use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
 use thiserror::Error;
+use unicase::UniCase;
 
 /// queue error
 #[derive(Debug, Error)]
@@ -211,17 +212,17 @@ impl Ord for Track {
 			.tag
 			.title()
 			.zip(other.tag.title())
-			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
+			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 		let artist = self
 			.tag
 			.artist()
 			.zip(other.tag.artist())
-			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
+			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 		let albums = self
 			.tag
 			.album()
 			.zip(other.tag.album())
-			.map(|(s, o)| (s.to_lowercase(), o.to_lowercase()));
+			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 
 		tracks
 			.map_or(Ordering::Equal, |(s, o)| s.cmp(&o))
@@ -586,9 +587,9 @@ mod test {
 	use super::{Queue, QueueError, Track};
 	use crate::{player::Player, state::State};
 	use camino::{Utf8Path, Utf8PathBuf};
-	use std::collections::VecDeque;
+	use std::{cmp::Ordering, collections::VecDeque};
 
-	/// create [`Track`]
+	/// create [`Track`] by reading from disk
 	///
 	/// # Errors
 	///
@@ -872,5 +873,119 @@ mod test {
 		assert!(track.is_none());
 
 		Ok(())
+	}
+
+	/// create mock [`Track`] by setting the tags directly
+	///
+	/// # Usage
+	///
+	/// ```
+	/// // set track
+	/// track!(#1);
+	/// // set track and title
+	/// track!(#1, "title");
+	/// // set track, title and artist
+	/// track!(#1, "title", "artist");
+	/// // set track, title, artist and album
+	/// track!(#1, "title", "artist", "album");
+	/// // set title
+	/// track!("title");
+	/// // set title and artist
+	/// track!("title", "artist");
+	/// // set title, artist and album
+	/// track!("title", "artist", "album");
+	/// // set artist
+	/// track!(#1, art = "artist");
+	/// // set artist and album
+	/// track!(#1, art = "artist", alb = "album");
+	/// // set title and album
+	/// track!(#1, tit = "title", alb = "album");
+	/// // set album
+	/// track!(#1, alb = "album");
+	/// ```
+	macro_rules! track {
+		($(# $tr:expr, )? $(tit = $tit:expr, )? $(art = $art:expr, )? $(alb = $alb:expr, )?) => {
+			{
+				use id3::{Tag, TagLike};
+
+				let mut tag = Tag::new();
+				$( tag.set_track($tr); )?
+				$( tag.set_title($tit); )?
+				$( tag.set_artist($art); )?
+				$( tag.set_album($alb); )?
+
+				let path = "/dev/null".into();
+				let track = Track { path, tag };
+
+				track
+			}
+		};
+		(# $tr:expr $(, $tit:expr $(, $art:expr $(, $alb:expr)?)?)?) => {
+			track!(
+				# $tr,
+				$( tit = $tit,
+				$( art = $art,
+				$( alb = $alb, )? )? )?
+			)
+		};
+		($tit:expr $(, $art:expr $(, $alb:expr)?)?) => {
+			track!(
+				tit = $tit,
+				$( art = $art,
+				$( alb = $alb, )? )?
+			)
+		};
+	}
+
+	#[test]
+	fn ord() {
+		let one = track!(#0);
+		let two = track!("00", "00");
+		let thr = track!(#1, "01");
+		let fou = track!(art = "01",);
+		let fiv = track!(#0, "00", "02");
+
+		assert_eq!(one.cmp(&two), Ordering::Equal);
+		assert_eq!(one.cmp(&thr), Ordering::Less);
+		assert_eq!(two.cmp(&thr), Ordering::Less);
+		assert_eq!(one.cmp(&fou), Ordering::Equal);
+		assert_eq!(two.cmp(&fou), Ordering::Less);
+		assert_eq!(fou.cmp(&fiv), Ordering::Less);
+		assert_eq!(thr.cmp(&fiv), Ordering::Greater);
+		assert_eq!(one.cmp(&fiv), Ordering::Equal);
+		assert_eq!(two.cmp(&fou), Ordering::Less);
+	}
+
+	#[test]
+	fn ord_case() {
+		let one = track!(#0, "a");
+		let two = track!("B", "c");
+		let thr = track!(#1, art = "D",);
+		let fou = track!("c");
+
+		assert_eq!(one.cmp(&two), Ordering::Less);
+		assert_eq!(two.cmp(&one), Ordering::Greater);
+		assert_eq!(two.cmp(&thr), Ordering::Less);
+		assert_eq!(thr.cmp(&two), Ordering::Greater);
+		assert_eq!(two.cmp(&fou), Ordering::Less);
+		assert_eq!(fou.cmp(&two), Ordering::Greater);
+	}
+
+	#[test]
+	fn ord_unicode() {
+		let one = track!("ä");
+		let two = track!("Ü", "ẞ");
+		let thr = track!("Ä");
+		let fou = track!("ü", "ss");
+
+		assert_eq!(one.cmp(&two), Ordering::Less);
+		assert_eq!(two.cmp(&one), Ordering::Greater);
+		assert_eq!(thr.cmp(&fou), Ordering::Less);
+		assert_eq!(fou.cmp(&thr), Ordering::Greater);
+
+		assert_eq!(one.cmp(&thr), Ordering::Equal);
+		assert_eq!(thr.cmp(&one), Ordering::Equal);
+		assert_eq!(two.cmp(&fou), Ordering::Equal);
+		assert_eq!(fou.cmp(&two), Ordering::Equal);
 	}
 }
