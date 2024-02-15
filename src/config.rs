@@ -67,7 +67,7 @@ pub enum Child {
 impl Child {
 	/// return name of child
 	///
-	/// the name is just the file_name
+	/// the name is just the `file_name`
 	/// and a trailing slash for directories
 	fn name(&self) -> Cow<'_, str> {
 		match *self {

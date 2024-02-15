@@ -121,12 +121,11 @@ impl State {
 
 	/// write to file
 	pub fn write(&self) -> Result<(), StateError> {
-		let file = match File::create(&*STATE_PATH) {
-			Ok(file) => file,
-			Err(_) => {
-				fs::create_dir_all(&*CONFIG_DIR)?;
-				File::create(&*STATE_PATH)?
-			}
+		let file = if let Ok(file) = File::create(&*STATE_PATH) {
+			file
+		} else {
+			fs::create_dir_all(&*CONFIG_DIR)?;
+			File::create(&*STATE_PATH)?
 		};
 		let mut file = BufWriter::new(file);
 
