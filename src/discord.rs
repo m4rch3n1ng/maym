@@ -4,8 +4,7 @@ use discord_rich_presence::{
 	DiscordIpc, DiscordIpcClient,
 };
 use std::{
-	fmt::Debug,
-	time::{Duration, SystemTime, UNIX_EPOCH},
+	fmt::Debug, time::{Duration, SystemTime, UNIX_EPOCH}
 };
 
 /// amt of time to wait before a retry
@@ -22,6 +21,16 @@ enum Client {
 }
 
 impl Client {
+	fn new() -> Client {
+		let mut discord = DiscordIpcClient::new(CLIENT_ID).expect("should never panic");
+		if discord.connect().is_ok() {
+			Client::Discord(discord)
+		} else {
+			let now = SystemTime::now();
+			Client::Invalid(now)
+		}
+	}
+
 	fn revive(&mut self) {
 		match self {
 			Client::Discord(_) => (),
@@ -30,13 +39,8 @@ impl Client {
 				let diff = now.duration_since(*prev).unwrap_or(WAIT);
 
 				if diff >= WAIT {
-					let mut discord = DiscordIpcClient::new(CLIENT_ID).expect("should never panic");
-					if let Ok(()) = discord.connect() {
-						let discord = Client::Discord(discord);
-						*self = discord;
-					} else {
-						*prev = now;
-					}
+					let client = Client::new();
+					*self = client;
 				}
 			}
 		}
@@ -57,12 +61,7 @@ pub struct Discord(Client);
 
 impl Discord {
 	pub fn new() -> Self {
-		let mut discord = DiscordIpcClient::new(CLIENT_ID).expect("should never panic");
-		let client = match discord.connect() {
-			Ok(_) => Client::Discord(discord),
-			Err(_) => Client::Invalid(SystemTime::now()),
-		};
-
+		let client = Client::new();
 		Discord(client)
 	}
 
