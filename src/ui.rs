@@ -6,6 +6,8 @@ use crate::{
 	state::State,
 };
 use ratatui::{layout::Rect, terminal::Frame};
+#[cfg(feature = "discord")]
+use std::sync::Mutex;
 
 mod popup;
 pub mod utils;
@@ -37,6 +39,12 @@ impl Ui {
 			lists: Lists::new(config, queue),
 			popup: None,
 		}
+	}
+
+	#[cfg(feature = "discord")]
+	pub fn draw_lock(&mut self, frame: &mut Frame, state: &Mutex<State>, queue: &Queue) {
+		let state = state.lock().unwrap();
+		self.draw(frame, &state, queue);
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, state: &State, queue: &Queue) {

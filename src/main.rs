@@ -52,6 +52,9 @@ enum MusicError {
 struct Application {
 	pub player: Player,
 	pub config: Config,
+	#[cfg(feature = "discord")]
+	pub state: Arc<Mutex<State>>,
+	#[cfg(not(feature = "discord"))]
 	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
@@ -68,17 +71,22 @@ impl Application {
 		let state = State::init();
 		let queue = Queue::state(&state)?;
 
-		#[cfg(feature = "discord")]
-		let discord = Discord::default();
-		#[cfg(feature = "discord")]
-		let discord = Arc::new(Mutex::new(discord));
-		#[cfg(feature = "discord")]
-		let lock = Arc::clone(&discord);
-		#[cfg(feature = "discord")]
-		thread::spawn(move || lock.lock().unwrap().connect());
-
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
+
+		#[cfg(feature = "discord")]
+		let discord = {
+			let discord = Discord::default();
+			let discord = Arc::new(Mutex::new(discord));
+
+			let lock = Arc::clone(&discord);
+			thread::spawn(move || lock.lock().unwrap().connect());
+
+			discord
+		};
+
+		#[cfg(feature = "discord")]
+		let state = Arc::new(Mutex::new(state));
 
 		let ui = Ui::new(&queue, &config);
 
@@ -103,6 +111,9 @@ impl Application {
 		let mut ticks = 0;
 
 		loop {
+			#[cfg(feature = "discord")]
+			terminal.draw(|f| self.ui.draw_lock(f, &self.state, &self.queue))?;
+			#[cfg(not(feature = "discord"))]
 			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
 			let timeout = self.tick.saturating_sub(last.elapsed());
@@ -121,10 +132,18 @@ impl Application {
 			}
 
 			if last.elapsed() >= self.tick {
-				self.state.tick(&self.player, &self.queue, &mut self.ui);
+				#[cfg(feature = "discord")]
+				let mut state = self.state.lock().unwrap();
+				#[cfg(not(feature = "discord"))]
+				let state = &mut self.state;
+
+				state.tick(&self.player, &self.queue, &mut self.ui);
 
 				if !skip_done {
-					self.queue.done(&mut self.player, &self.state)?;
+					#[cfg(feature = "discord")]
+					self.queue.done(&mut self.player, &state)?;
+					#[cfg(not(feature = "discord"))]
+					self.queue.done(&mut self.player, state)?;
 				} else {
 					skip_done = false;
 				}
@@ -133,18 +152,20 @@ impl Application {
 
 				// todo amt
 				if ticks >= 10 {
-					self.state.write()?;
+					state.write()?;
 
-					// todo clone
 					#[cfg(feature = "discord")]
 					{
-						let state = self.state.clone();
+						drop(state);
+
+						let state = Arc::clone(&self.state);
 						let discord = Arc::clone(&self.discord);
 						thread::spawn(move || {
 							let Ok(mut discord) = discord.try_lock() else {
 								return;
 							};
 
+							let state = state.lock().unwrap();
 							discord.state(&state);
 						});
 					}
@@ -217,6 +238,11 @@ impl Application {
 				if self.ui.is_popup() {
 					self.ui.right();
 				} else {
+					#[cfg(feature = "discord")]
+					let state = self.state.lock().unwrap();
+					#[cfg(feature = "discord")]
+					self.queue.seek_i(&mut self.player, &state, seek);
+					#[cfg(not(feature = "discord"))]
 					self.queue.seek_i(&mut self.player, &self.state, seek);
 				}
 			}
@@ -224,6 +250,11 @@ impl Application {
 				if self.ui.is_popup() {
 					self.ui.left();
 				} else {
+					#[cfg(feature = "discord")]
+					let state = self.state.lock().unwrap();
+					#[cfg(feature = "discord")]
+					self.queue.seek_d(&mut self.player, &state, seek);
+					#[cfg(not(feature = "discord"))]
 					self.queue.seek_d(&mut self.player, &self.state, seek);
 				}
 			}
