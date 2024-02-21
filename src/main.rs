@@ -21,6 +21,11 @@ use std::{
 	io,
 	time::{Duration, Instant},
 };
+#[cfg(feature = "discord")]
+use std::{
+	sync::{Arc, Mutex},
+	thread,
+};
 use thiserror::Error;
 
 mod config;
@@ -51,7 +56,7 @@ struct Application {
 	pub queue: Queue,
 	pub ui: Ui,
 	#[cfg(feature = "discord")]
-	pub discord: Discord,
+	pub discord: Arc<Mutex<Discord>>,
 	tick: Duration,
 }
 
@@ -64,7 +69,13 @@ impl Application {
 		let queue = Queue::state(&state)?;
 
 		#[cfg(feature = "discord")]
-		let discord = Discord::new();
+		let discord = Discord::default();
+		#[cfg(feature = "discord")]
+		let discord = Arc::new(Mutex::new(discord));
+		#[cfg(feature = "discord")]
+		let lock = Arc::clone(&discord);
+		#[cfg(feature = "discord")]
+		thread::spawn(move || lock.lock().unwrap().connect());
 
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
@@ -123,8 +134,20 @@ impl Application {
 				// todo amt
 				if ticks >= 10 {
 					self.state.write()?;
+
+					// todo clone
 					#[cfg(feature = "discord")]
-					self.discord.state(&self.state);
+					{
+						let state = self.state.clone();
+						let discord = Arc::clone(&self.discord);
+						thread::spawn(move || {
+							let Ok(mut discord) = discord.try_lock() else {
+								return;
+							};
+
+							discord.state(&state);
+						});
+					}
 
 					ticks = 0;
 				} else {

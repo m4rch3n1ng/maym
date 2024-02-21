@@ -38,7 +38,7 @@ const fn _default_true() -> bool {
 	true
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct DurationWrap(Duration);
 
 impl Deref for DurationWrap {
@@ -78,7 +78,7 @@ impl Serialize for DurationWrap {
 /// struct to track application state
 ///
 /// also used to reinstate on startup
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
 	/// volume
 	pub volume: u64,

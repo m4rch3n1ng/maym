@@ -4,7 +4,8 @@ use discord_rich_presence::{
 	DiscordIpc, DiscordIpcClient,
 };
 use std::{
-	fmt::Debug, time::{Duration, SystemTime, UNIX_EPOCH}
+	fmt::Debug,
+	time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 /// amt of time to wait before a retry
@@ -15,20 +16,25 @@ const WAIT: Duration = Duration::from_secs(30);
 
 const CLIENT_ID: &str = "1170754365619982346";
 
+#[derive(Default)]
 pub enum Discord {
 	Connect(DiscordIpcClient),
 	NotConnect(SystemTime),
+	#[default]
+	NotYet,
 }
 
 impl Discord {
-	pub fn new() -> Discord {
+	pub fn connect(&mut self) {
 		let mut discord = DiscordIpcClient::new(CLIENT_ID).expect("should never panic");
-		if discord.connect().is_ok() {
+		let discord = if discord.connect().is_ok() {
 			Discord::Connect(discord)
 		} else {
 			let now = SystemTime::now();
 			Discord::NotConnect(now)
-		}
+		};
+
+		*self = discord;
 	}
 
 	fn revive(&mut self) {
@@ -39,10 +45,10 @@ impl Discord {
 				let diff = now.duration_since(*prev).unwrap_or(WAIT);
 
 				if diff >= WAIT {
-					let client = Discord::new();
-					*self = client;
+					self.connect();
 				}
 			}
+			Discord::NotYet => self.connect(),
 		}
 	}
 
@@ -51,6 +57,7 @@ impl Discord {
 		match self {
 			Discord::Connect(discord) => Some(discord),
 			Discord::NotConnect(_) => None,
+			Discord::NotYet => unreachable!(),
 		}
 	}
 
@@ -77,6 +84,7 @@ impl Debug for Discord {
 		match self {
 			Discord::Connect(_) => f.debug_tuple("Discord").field(&..).finish(),
 			Discord::NotConnect(_) => f.write_str("Invalid"),
+			Discord::NotYet => f.write_str("NotYet"),
 		}
 	}
 }
