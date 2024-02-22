@@ -2,7 +2,7 @@ use self::{
 	config::Config,
 	player::Player,
 	queue::{Queue, QueueError},
-	state::State,
+	state::{State, StateError},
 	ui::{Popups, Ui},
 };
 use color_eyre::eyre::Context;
@@ -15,7 +15,6 @@ use ratatui::{
 	prelude::{Backend, CrosstermBackend},
 	Terminal,
 };
-use state::StateError;
 use std::{
 	io,
 	time::{Duration, Instant},

@@ -2,9 +2,7 @@ use crate::queue::Queue;
 use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
 use libmpv::{FileState, Mpv};
-use std::fmt::Debug;
-use std::rc::Rc;
-use std::time::Duration;
+use std::{fmt::Debug, rc::Rc, time::Duration};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -130,7 +128,7 @@ pub struct Player(Mpv);
 
 impl Debug for Player {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "Player")
+		f.debug_tuple("Player").field(&..).finish()
 	}
 }
 

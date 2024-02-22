@@ -300,7 +300,7 @@ impl List {
 	/// deserialize Vec of [`List`]
 	///
 	/// ignores non-existant [`List`] items
-	/// and unwrapsan `Option` to an empty vec
+	/// and unwraps an `Option` to an empty vec
 	pub fn maybe_deserialize<'de, D>(data: D) -> Result<Vec<List>, D::Error>
 	where
 		D: Deserializer<'de>,
