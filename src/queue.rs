@@ -58,7 +58,7 @@ impl Track {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if the path doesn't exist or is a directory
-	fn new(path: Utf8PathBuf) -> Result<Self, QueueError> {
+	pub fn new(path: Utf8PathBuf) -> Result<Self, QueueError> {
 		if !path.exists() {
 			return Err(QueueError::NoTrack(path));
 		} else if path.is_dir() {
@@ -585,7 +585,7 @@ impl Queue {
 #[cfg(test)]
 mod test {
 	use super::{Queue, QueueError, Track};
-	use crate::{player::Player, state::State};
+	use crate::{player::Player, state};
 	use camino::{Utf8Path, Utf8PathBuf};
 	use std::{cmp::Ordering, collections::VecDeque};
 
@@ -790,58 +790,38 @@ mod test {
 		Ok(())
 	}
 
-	/// create mock [`State`]
-	fn state<P: Into<Utf8PathBuf>>(
-		queue: Option<P>,
-		track: Option<P>,
-	) -> Result<State, QueueError> {
-		let queue = queue.map(Into::into);
-		let track = track.map(Into::into).map(Track::new).transpose()?;
-
-		let state = State {
-			volume: 45,
-			paused: true,
-			muted: false,
-			elapsed: None,
-			duration: None,
-			queue,
-			shuffle: true,
-			track,
-		};
-		Ok(state)
-	}
-
 	#[test]
 	fn queue_state() -> color_eyre::Result<()> {
-		let empty = state::<&str>(None, None)?;
+		let empty = state::test::mock::<&str>(None, None)?;
 		let queue = Queue::state(&empty)?;
 
 		assert!(queue.path.is_none());
 		assert!(queue.tracks.is_empty());
 		assert!(queue.current.is_none());
 
-		let no_exists = state(Some("mock/list 04"), Some("mock/list 01/track 01.mp3"))?;
+		let no_exists = state::test::mock(Some("mock/list 04"), Some("mock/list 01/track 01.mp3"))?;
 		let queue = Queue::state(&no_exists)?;
 
 		assert!(queue.path.is_none());
 		assert!(queue.tracks.is_empty());
 		assert!(queue.current.is_none());
 
-		let no_track = state(Some("mock/list 01"), None)?;
+		let no_track = state::test::mock(Some("mock/list 01"), None)?;
 		let queue = Queue::state(&no_track)?;
 
 		assert_eq!(queue.path, Some("mock/list 01".into()));
 		assert_eq!(queue.tracks.len(), 6);
 		assert!(queue.current.is_none());
 
-		let track_not_in_list = state(Some("mock/list 01"), Some("mock/list 02/track 01.mp3"))?;
+		let track_not_in_list =
+			state::test::mock(Some("mock/list 01"), Some("mock/list 02/track 01.mp3"))?;
 		let queue = Queue::state(&track_not_in_list)?;
 
 		assert!(queue.path.is_some());
 		assert_eq!(queue.tracks.len(), 6);
 		assert!(queue.current.is_none());
 
-		let exists = state(Some("mock/list 01"), Some("mock/list 01/track 01.mp3"))?;
+		let exists = state::test::mock(Some("mock/list 01"), Some("mock/list 01/track 01.mp3"))?;
 		let track = Track::new("mock/list 01/track 01.mp3".into())?;
 		let queue = Queue::state(&exists)?;
 
