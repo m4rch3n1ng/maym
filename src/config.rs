@@ -103,7 +103,7 @@ impl Child {
 			Child::List(ref list) => {
 				let underline = Style::default().underlined();
 				let accent = utils::style::accent().underlined();
-				if let Some(path) = queue.path().map(AsRef::as_ref) {
+				if let Some(path) = queue.path() {
 					if list == &path {
 						Line::styled(name, accent.bold())
 					} else if list.contains(path) {
@@ -246,7 +246,7 @@ impl List {
 		let underline = Style::default().underlined();
 		let accent = utils::style::accent().underlined();
 		if let Some(path) = queue.path() {
-			if self == &path.as_path() {
+			if self == &path {
 				Line::styled(name, accent.bold())
 			} else if self.contains(path) {
 				Line::styled(name, accent)

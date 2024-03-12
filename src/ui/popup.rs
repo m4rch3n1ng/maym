@@ -303,7 +303,7 @@ impl Tracks {
 #[derive(Debug)]
 enum ListType<'a> {
 	Child(Child, &'a List),
-	List(List),
+	List(&'a List),
 }
 
 #[derive(Debug)]
@@ -465,7 +465,7 @@ impl Lists {
 			ListType::Child(child, list)
 		} else {
 			let idx = self.state.selected().expect("state should always be Some");
-			let list = self.lists[idx].clone();
+			let list = &self.lists[idx];
 			ListType::List(list)
 		}
 	}
@@ -488,6 +488,7 @@ impl Lists {
 				}
 			}
 			ListType::List(list) => {
+				let list = list.clone();
 				self.set(Some(list), 0);
 			}
 		}
@@ -515,6 +516,7 @@ impl Lists {
 
 		match curr {
 			ListType::List(list) => {
+				let list = list.clone();
 				self.set(Some(list), 0);
 			}
 			ListType::Child(child, parent) => match child {

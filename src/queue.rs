@@ -313,8 +313,8 @@ impl Queue {
 
 	/// return queue path
 	#[inline]
-	pub fn path(&self) -> Option<&Utf8PathBuf> {
-		self.path.as_ref()
+	pub fn path(&self) -> Option<&Utf8Path> {
+		self.path.as_deref()
 	}
 
 	/// return track list
@@ -478,16 +478,16 @@ impl Queue {
 	///
 	/// returns [`QueueError`] if [`Queue::tracks`] is empty
 	fn next_track_shuffle(&mut self) -> Result<Track, QueueError> {
-		if let Some(current) = self.track().cloned() {
+		if let Some(current) = self.current.as_ref() {
 			// try to choose a different track if one is already playing
 			// fall back when the playlist length is 1
 			let track = self
 				.tracks
 				.iter()
-				.filter(|&track| track != &current)
+				.filter(|&track| track != current)
 				.choose(&mut self.rng)
 				.cloned()
-				.unwrap_or(current);
+				.unwrap_or_else(|| current.clone());
 			Ok(track)
 		} else {
 			self.tracks

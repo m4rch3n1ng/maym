@@ -108,9 +108,9 @@ impl State {
 		self.shuffle = queue.is_shuffle();
 
 		let q = queue.path();
-		if self.queue.as_ref() != q {
+		if self.queue.as_deref() != q {
 			ui.reset_q(queue);
-			self.queue = q.cloned();
+			self.queue = q.map(ToOwned::to_owned);
 		}
 
 		if self.track.as_ref() != queue.track() {
