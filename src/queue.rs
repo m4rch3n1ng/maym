@@ -123,7 +123,7 @@ impl Track {
 		let fmt = self.to_string();
 		if let Some(track) = queue.track() {
 			if track == self {
-				Line::styled(fmt, utils::style::accent().bold())
+				utils::widgets::line(fmt, utils::style::accent().bold())
 			} else {
 				Line::from(fmt)
 			}

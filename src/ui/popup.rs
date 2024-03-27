@@ -107,10 +107,10 @@ impl PopupTrait for Lyrics {
 			if let Some(lyrics) = track.lyrics() {
 				lyrics.lines().map(Line::from).collect()
 			} else {
-				vec![Line::styled("track has no lyrics", dimmed)]
+				vec![utils::widgets::line("track has no lyrics", dimmed)]
 			}
 		} else {
-			vec![Line::styled("no track playing", dimmed)]
+			vec![utils::widgets::line("no track playing", dimmed)]
 		}
 	}
 
@@ -130,36 +130,38 @@ impl PopupTrait for Tags {
 
 			let title = track
 				.title()
-				.map_or(Line::styled("none", dimmed), Line::from);
+				.map_or(utils::widgets::line("none", dimmed), Line::from);
 			let artist = track
 				.artist()
-				.map_or(Line::styled("none", dimmed), Line::from);
+				.map_or(utils::widgets::line("none", dimmed), Line::from);
 			let album = track
 				.album()
-				.map_or(Line::styled("none", dimmed), Line::from);
-			let num = track.track().map_or(Line::styled("none", dimmed), |num| {
-				Line::from(num.to_string())
-			});
+				.map_or(utils::widgets::line("none", dimmed), Line::from);
+			let num = track
+				.track()
+				.map_or(utils::widgets::line("none", dimmed), |num| {
+					Line::from(num.to_string())
+				});
 			let path = Line::from(track.path.as_str());
 
 			vec![
-				Line::styled("title", underline),
+				utils::widgets::line("title", underline),
 				title,
 				Line::default(),
-				Line::styled("artist", underline),
+				utils::widgets::line("artist", underline),
 				artist,
 				Line::default(),
-				Line::styled("album", underline),
+				utils::widgets::line("album", underline),
 				album,
 				Line::default(),
-				Line::styled("track", underline),
+				utils::widgets::line("track", underline),
 				num,
 				Line::default(),
-				Line::styled("path", underline),
+				utils::widgets::line("path", underline),
 				path,
 			]
 		} else {
-			vec![Line::styled("no track playing", dimmed)]
+			vec![utils::widgets::line("no track playing", dimmed)]
 		}
 	}
 
@@ -205,8 +207,8 @@ impl Tracks {
 
 		let path = queue.path();
 		let line = path.map_or(
-			Line::styled("nothing playing", Style::default().bold().dim().italic()),
-			|path| Line::styled(format!(">> {:?}", path), Style::default().bold()),
+			utils::widgets::line("nothing playing", Style::default().bold().dim().italic()),
+			|path| utils::widgets::line(format!(">> {:?}", path), Style::default().bold()),
 		);
 		let title = Paragraph::new(line).block(Block::default());
 		frame.render_widget(title, title_area);
@@ -368,12 +370,10 @@ impl Lists {
 		}
 		self.page = Some(page);
 
-		let line = self
-			.list
-			.as_ref()
-			.map_or(Line::styled("<< \"/\"", Style::default().bold()), |list| {
-				Line::styled(format!("<< {:?}", list.path), Style::default().bold())
-			});
+		let line = self.list.as_ref().map_or(
+			utils::widgets::line("<< \"/\"", Style::default().bold()),
+			|list| utils::widgets::line(format!("<< {:?}", list.path), Style::default().bold()),
+		);
 		let paragraph = Paragraph::new(line);
 		frame.render_widget(paragraph, title_area);
 

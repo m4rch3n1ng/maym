@@ -7,6 +7,19 @@ pub fn fmt_duration(duration: Duration) -> String {
 	format!("{:0>2}:{:0>2}", min, sec)
 }
 
+pub mod widgets {
+	use ratatui::{
+		style::Style,
+		text::{Line, Span},
+	};
+	use std::borrow::Cow;
+
+	pub fn line<'a, I: Into<Cow<'a, str>>>(txt: I, style: Style) -> Line<'a> {
+		let spans = vec![Span::styled(txt, style)];
+		Line::from(spans)
+	}
+}
+
 pub mod style {
 	use ratatui::style::{Style, Stylize};
 

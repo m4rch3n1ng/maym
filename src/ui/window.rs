@@ -23,15 +23,16 @@ pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 
 	if let Some(track) = state.track.as_ref() {
 		let title = track.title().map_or_else(
-			|| Line::styled("unknown title", dim_italic),
-			|title| Line::styled(title, bold),
+			|| utils::widgets::line("unknown title", dim_italic),
+			|title| utils::widgets::line(title, bold),
 		);
-		let artist = track
-			.artist()
-			.map_or_else(|| Line::styled("unknown artist", dim_italic), Line::from);
+		let artist = track.artist().map_or_else(
+			|| utils::widgets::line("unknown artist", dim_italic),
+			Line::from,
+		);
 
 		let text = if let Some(album) = track.album() {
-			let album = Line::styled(album, dim);
+			let album = utils::widgets::line(album, dim);
 			vec![title, artist, album]
 		} else {
 			vec![title, artist]
@@ -40,7 +41,7 @@ pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 		let para = Paragraph::new(text).block(block);
 		frame.render_widget(para, area);
 	} else {
-		let line = Line::styled("no track playing", dim_italic);
+		let line = utils::widgets::line("no track playing", dim_italic);
 		let para = Paragraph::new(line).block(block.border_style(dim));
 		frame.render_widget(para, area);
 	}
@@ -68,7 +69,7 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 		let dim = dimmed.italic();
 
 		let padding = Padding::new(2, 0, 1, 0);
-		let line = Line::styled("no track playing", dim);
+		let line = utils::widgets::line("no track playing", dim);
 		let para = Paragraph::new(line).block(block.padding(padding).border_style(dimmed));
 		frame.render_widget(para, area);
 	}

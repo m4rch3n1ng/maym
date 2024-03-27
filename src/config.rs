@@ -105,20 +105,20 @@ impl Child {
 				let accent = utils::style::accent().underlined();
 				if let Some(path) = queue.path() {
 					if list == &path {
-						Line::styled(name, accent.bold())
+						utils::widgets::line(name, accent.bold())
 					} else if list.contains(path) {
-						Line::styled(name, accent)
+						utils::widgets::line(name, accent)
 					} else {
-						Line::styled(name, underline)
+						utils::widgets::line(name, underline)
 					}
 				} else {
-					Line::styled(name, underline)
+					utils::widgets::line(name, underline)
 				}
 			}
 			Child::Mp3(ref path) => {
 				if let Some(track) = queue.track() {
 					if track == path {
-						Line::styled(name, utils::style::accent().bold())
+						utils::widgets::line(name, utils::style::accent().bold())
 					} else {
 						Line::raw(name)
 					}
@@ -247,14 +247,14 @@ impl List {
 		let accent = utils::style::accent().underlined();
 		if let Some(path) = queue.path() {
 			if self == &path {
-				Line::styled(name, accent.bold())
+				utils::widgets::line(name, accent.bold())
 			} else if self.contains(path) {
-				Line::styled(name, accent)
+				utils::widgets::line(name, accent)
 			} else {
-				Line::styled(name, underline)
+				utils::widgets::line(name, underline)
 			}
 		} else {
-			Line::styled(name, underline)
+			utils::widgets::line(name, underline)
 		}
 	}
 
