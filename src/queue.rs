@@ -441,7 +441,7 @@ impl Queue {
 		};
 
 		if let Some(track) = last {
-			player.replace(track.as_str());
+			player.replace(&track);
 
 			if let Some(current) = self.current.replace(track) {
 				self.next.push(current);
@@ -514,7 +514,7 @@ impl Queue {
 	/// replaces track in [`Player`] via [`Player::replace`]
 	/// and pushes last track to [`Queue::last`]
 	fn replace(&mut self, track: Track, player: &mut Player) {
-		player.replace(track.as_str());
+		player.replace(&track);
 		player.pause(false);
 
 		// only replace and add to last, if it isn't already playing

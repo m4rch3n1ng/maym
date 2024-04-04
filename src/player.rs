@@ -1,4 +1,4 @@
-use crate::queue::Queue;
+use crate::queue::{Queue, Track};
 use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
 use libmpv::{FileState, Mpv};
@@ -154,24 +154,23 @@ impl Player {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
 
-			let track = track.as_str();
 			self.revive(track, start)?;
 		}
 
 		Ok(())
 	}
 
-	fn revive(&mut self, track: &str, start: Duration) -> Result<(), PlayerError> {
+	fn revive(&mut self, track: &Track, start: Duration) -> Result<(), PlayerError> {
 		let start = format!("start={},pause=yes", start.as_secs());
-		let file = (track, FileState::Replace, Some::<&str>(&start));
+		let file = (track.as_str(), FileState::Replace, Some::<&str>(&start));
 		self.0.playlist_load_files(&[file])?;
 
 		Ok(())
 	}
 
-	pub fn replace(&mut self, track: &str) {
+	pub fn replace(&mut self, track: &Track) {
 		self.0
-			.playlist_load_files(&[(track, FileState::Replace, None)])
+			.playlist_load_files(&[(track.as_str(), FileState::Replace, None)])
 			.map_err(PlayerError::from)
 			.expect("error loading file");
 	}
