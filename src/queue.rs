@@ -1,6 +1,6 @@
 //! queue and track
 
-use crate::{player::Player, state::State, ui::utils};
+use crate::{player::Player, state::State, ui::utils as ui};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use itertools::Itertools;
@@ -123,7 +123,7 @@ impl Track {
 		let fmt = self.to_string();
 		if let Some(track) = queue.track() {
 			if track == self {
-				utils::widgets::line(fmt, utils::style::accent().bold())
+				ui::widgets::line(fmt, ui::style::accent().bold())
 			} else {
 				Line::from(fmt)
 			}
