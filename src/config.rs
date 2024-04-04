@@ -490,6 +490,7 @@ impl Config {
 			.maybe_parse::<u64>()?;
 
 		let accent = config.as_ref().and_then(|conf| conf.accent);
+		let accent = input("accent color").maybe_initial(accent).cancel(do_cancel).maybe_parse::<ColorWrap>()?;
 
 		let seek = config.as_ref().and_then(|config| config.seek);
 		let seek = input("track seek amount (in s)")
