@@ -12,8 +12,8 @@ use crossterm::{
 	execute, terminal,
 };
 use ratatui::{
-	prelude::{Backend, CrosstermBackend},
-	Terminal,
+	backend::{Backend, CrosstermBackend},
+	terminal::Terminal,
 };
 use std::{
 	io,

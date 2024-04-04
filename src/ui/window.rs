@@ -2,12 +2,12 @@ use super::utils;
 use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
-	prelude::{Alignment, Constraint, Direction, Layout, Rect},
+	layout::{Alignment, Constraint, Direction, Layout, Rect},
 	style::{Style, Stylize},
 	symbols,
 	text::{Line, Span},
 	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
-	Frame,
+	terminal::Frame,
 };
 use std::time::Duration;
 

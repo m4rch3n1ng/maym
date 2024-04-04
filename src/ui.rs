@@ -5,7 +5,7 @@ use crate::{
 	queue::{Queue, QueueError},
 	state::State,
 };
-use ratatui::{prelude::Rect, Frame};
+use ratatui::{layout::Rect, terminal::Frame};
 
 mod popup;
 pub mod utils;

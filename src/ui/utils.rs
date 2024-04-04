@@ -49,7 +49,7 @@ pub mod style {
 
 pub mod popup {
 	use ratatui::{
-		prelude::{Constraint, Direction, Layout, Rect},
+		layout::{Constraint, Direction, Layout, Rect},
 		style::{Style, Stylize},
 		widgets::{Block, Borders, Padding},
 	};

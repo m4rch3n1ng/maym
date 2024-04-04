@@ -7,11 +7,11 @@ use crate::{
 };
 use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
-	prelude::Rect,
+	layout::Rect,
 	style::{Modifier, Style, Stylize},
 	text::Line,
 	widgets::{Block, Clear, List as ListWidget, ListItem, ListState, Paragraph},
-	Frame,
+	terminal::Frame,
 };
 
 #[derive(Debug)]
