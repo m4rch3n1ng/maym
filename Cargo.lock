@@ -375,6 +375,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "maym"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "color-eyre",
+ "conv",
+ "crossterm",
+ "dirs",
+ "id3",
+ "itertools 0.13.0",
+ "libmpv",
+ "once_cell",
+ "rand",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "unicase",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -399,27 +420,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys",
-]
-
-[[package]]
-name = "music"
-version = "0.1.0"
-dependencies = [
- "camino",
- "color-eyre",
- "conv",
- "crossterm",
- "dirs",
- "id3",
- "itertools 0.13.0",
- "libmpv",
- "once_cell",
- "rand",
- "ratatui",
- "serde",
- "serde_json",
- "thiserror",
- "unicase",
 ]
 
 [[package]]
