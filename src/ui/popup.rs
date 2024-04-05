@@ -250,15 +250,22 @@ impl Tracks {
 	}
 
 	pub fn down(&mut self) {
+		let max = self.len.saturating_sub(1);
 		let idx = self
 			.state
 			.selected()
-			.map(|i| usize::min(self.len.saturating_sub(1), i.saturating_add(1)));
+			.map(|i| if i == max { 0 } else { i.saturating_add(1) });
 		self.state.select(idx);
 	}
 
 	pub fn up(&mut self) {
-		let idx = self.state.selected().map(|i| i.saturating_sub(1));
+		let idx = self.state.selected().map(|i| {
+			if i == 0 {
+				self.len.saturating_sub(1)
+			} else {
+				i.saturating_sub(1)
+			}
+		});
 		self.state.select(idx);
 	}
 
@@ -410,16 +417,24 @@ impl Lists {
 	}
 
 	pub fn down(&mut self) {
-		let len = self.len();
+		let max = self.len().saturating_sub(1);
 		let idx = self
 			.state
 			.selected()
-			.map(|i| usize::min(len.saturating_sub(1), i.saturating_add(1)));
+			.map(|i| if i == max { 0 } else { i.saturating_add(1) });
+
 		self.state.select(idx);
 	}
 
 	pub fn up(&mut self) {
-		let idx = self.state.selected().map(|i| i.saturating_sub(1));
+		let idx = self.state.selected().map(|i| {
+			if i == 0 {
+				self.len().saturating_sub(1)
+			} else {
+				i.saturating_sub(1)
+			}
+		});
+
 		self.state.select(idx);
 	}
 
