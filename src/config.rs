@@ -125,7 +125,7 @@ impl Child {
 				if let Some(path) = queue.path() {
 					if list == &path {
 						ui::widgets::line(name, accent.bold())
-					} else if list.contains(path) {
+					} else if list.contains_path(path) {
 						ui::widgets::line(name, accent)
 					} else {
 						ui::widgets::line(name, underline)
@@ -258,7 +258,7 @@ impl List {
 	}
 
 	/// check if [`List`] contains path
-	fn contains(&self, other: &Utf8Path) -> bool {
+	fn contains_path(&self, other: &Utf8Path) -> bool {
 		other.ancestors().any(|p| self == &p)
 	}
 
@@ -271,7 +271,7 @@ impl List {
 		if let Some(path) = queue.path() {
 			if self == &path {
 				ui::widgets::line(name, accent.bold())
-			} else if self.contains(path) {
+			} else if self.contains_path(path) {
 				ui::widgets::line(name, accent)
 			} else {
 				ui::widgets::line(name, underline)
@@ -281,13 +281,23 @@ impl List {
 		}
 	}
 
+	pub fn position(&self, queue: &Queue) -> Option<usize> {
+		let (q, t) = queue.path().zip(queue.track())?;
+
+		let children = self.children();
+		children.iter().position(|child| match child {
+			Child::List(list) => list.contains_path(q),
+			Child::Mp3(path) => t == path,
+		})
+	}
+
 	/// if [`List`] contains path, searches recursively until it finds the matching path
-	pub fn find(&self, other: &Utf8Path) -> Option<List> {
+	pub fn find_list(&self, other: &Utf8Path) -> Option<List> {
 		if self == &other {
 			Some(self.clone())
-		} else if self.contains(other) {
+		} else if self.contains_path(other) {
 			self.children().into_iter().find_map(|child| match child {
-				Child::List(list) => list.find(other),
+				Child::List(list) => list.find_list(other),
 				Child::Mp3(_) => None,
 			})
 		} else {
@@ -503,22 +513,22 @@ mod test {
 	fn list_contains() -> color_eyre::Result<()> {
 		let mock = list("mock/list 01")?;
 
-		let one = mock.contains("mock/list 01/track 00.mp3".into());
+		let one = mock.contains_path("mock/list 01/track 00.mp3".into());
 		assert!(one);
 
-		let two = mock.contains("mock/list 01/sub 01".into());
+		let two = mock.contains_path("mock/list 01/sub 01".into());
 		assert!(two);
 
-		let thr = mock.contains("mock/list 01".into());
+		let thr = mock.contains_path("mock/list 01".into());
 		assert!(thr);
 
-		let fou = mock.contains("mock/list 01/sub 02/sub sub/".into());
+		let fou = mock.contains_path("mock/list 01/sub 02/sub sub/".into());
 		assert!(fou);
 
-		let fiv = mock.contains("mock".into());
+		let fiv = mock.contains_path("mock".into());
 		assert!(!fiv);
 
-		let six = mock.contains("/".into());
+		let six = mock.contains_path("/".into());
 		assert!(!six);
 
 		Ok(())
@@ -529,22 +539,22 @@ mod test {
 		let mock = list("mock/list 01")?;
 
 		let one = Utf8PathBuf::from("mock/list 01");
-		let one = mock.find(&one);
+		let one = mock.find_list(&one);
 		let lis = list("mock/list 01")?;
 		assert_eq!(one, Some(lis));
 
 		let two = Utf8PathBuf::from("mock/list 01/sub 01");
-		let two = mock.find(&two);
+		let two = mock.find_list(&two);
 		let lis = list("mock/list 01/sub 01")?;
 		assert_eq!(two, Some(lis));
 
 		let thr = Utf8PathBuf::from("mock/list 01/track 01.mp3");
 		assert!(thr.exists());
-		let thr = mock.find(&thr);
+		let thr = mock.find_list(&thr);
 		assert!(thr.is_none());
 
 		let fou = Utf8PathBuf::from("mock");
-		let fou = mock.find(&fou);
+		let fou = mock.find_list(&fou);
 		assert!(fou.is_none());
 
 		Ok(())

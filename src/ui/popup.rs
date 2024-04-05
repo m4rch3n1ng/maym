@@ -294,7 +294,7 @@ impl Lists {
 
 		let list = queue
 			.path()
-			.and_then(|path| lists.iter().find_map(|list| list.find(path)));
+			.and_then(|path| lists.iter().find_map(|list| list.find_list(path)));
 
 		let idx = if let Some(track) = queue.track()
 			&& let Some(list) = &list
@@ -456,19 +456,20 @@ impl Popup for Lists {
 		*self.state.offset_mut() = self.offset();
 	}
 
-	fn right(&mut self) {
+	fn right(&mut self, queue: &Queue) {
 		let curr = self.curr();
-
 		match curr {
 			ListType::Child(child, _) => {
 				if let Some(list) = child.list() {
 					let list = list.clone();
-					self.set(Some(list), 0);
+					let idx = list.position(queue).unwrap_or(0);
+					self.set(Some(list), idx);
 				}
 			}
 			ListType::List(list) => {
 				let list = list.clone();
-				self.set(Some(list), 0);
+				let idx = list.position(queue).unwrap_or(0);
+				self.set(Some(list), idx);
 			}
 		}
 	}

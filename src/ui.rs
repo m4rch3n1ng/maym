@@ -27,7 +27,9 @@ trait Popup {
 
 	fn left(&mut self) {}
 
-	fn right(&mut self) {}
+	fn right(&mut self, queue: &Queue) {
+		let _ = queue;
+	}
 
 	fn pg_up(&mut self) {}
 
@@ -159,9 +161,9 @@ impl Ui {
 		self.popups[popup as usize].left();
 	}
 
-	pub fn right(&mut self) {
+	pub fn right(&mut self, queue: &Queue) {
 		let Some(popup) = self.popup else { return };
-		self.popups[popup as usize].right();
+		self.popups[popup as usize].right(queue);
 	}
 
 	pub fn pg_up(&mut self) {
