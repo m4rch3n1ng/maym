@@ -233,7 +233,7 @@ impl Application {
 			}
 			(KeyCode::Right, KeyModifiers::NONE) => {
 				if self.ui.is_popup() {
-					self.ui.right();
+					self.ui.right(&self.queue);
 				} else {
 					#[cfg(feature = "mpris")]
 					let state = self.state.lock().unwrap();
