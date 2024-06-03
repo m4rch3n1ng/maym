@@ -1,7 +1,7 @@
 use crate::queue::{Queue, Track};
 use crate::state::State;
 use conv::{ConvUtil, UnwrapOrSaturate};
-use libmpv::{FileState, Mpv};
+use libmpv::Mpv;
 use std::{fmt::Debug, rc::Rc, time::Duration};
 use thiserror::Error;
 
@@ -134,9 +134,8 @@ impl Debug for Player {
 
 impl Player {
 	pub fn new() -> color_eyre::Result<Self> {
-		let mpv = Mpv::new().map_err(PlayerError::from)?;
-
-		mpv.set_property("vo", "null").map_err(PlayerError::from)?;
+		let mpv = Mpv::with_initializer(|init| init.set_property("vo", "null"))
+			.map_err(PlayerError::from)?;
 
 		let player = Player(mpv);
 		Ok(player)
@@ -162,15 +161,19 @@ impl Player {
 
 	fn revive(&mut self, track: &Track, start: Duration) -> Result<(), PlayerError> {
 		let start = format!("start={},pause=yes", start.as_secs());
-		let file = (track.as_str(), FileState::Replace, Some::<&str>(&start));
-		self.0.playlist_load_files(&[file])?;
+		let track = format!("{:?}", track.as_str());
+
+		self.0
+			.command("loadfile", &[&track, "replace", "0", &start])?;
 
 		Ok(())
 	}
 
 	pub fn replace(&mut self, track: &Track) {
+		let track = format!("{:?}", track.as_str());
+
 		self.0
-			.playlist_load_files(&[(track.as_str(), FileState::Replace, None)])
+			.command("loadfile", &[&track, "replace"])
 			.map_err(PlayerError::from)
 			.expect("error loading file");
 	}
