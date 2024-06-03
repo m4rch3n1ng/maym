@@ -232,8 +232,30 @@ impl Drop for Application {
 	}
 }
 
-fn main() -> color_eyre::Result<()> {
+fn install() -> color_eyre::Result<()> {
 	color_eyre::install()?;
+
+	let hook = std::panic::take_hook();
+	std::panic::set_hook(Box::new(move |info| {
+		let mut stdout = io::stdout();
+
+		let _ = terminal::disable_raw_mode();
+		let _ = execute!(
+			stdout,
+			terminal::LeaveAlternateScreen,
+			event::DisableMouseCapture
+		);
+
+		let _ = execute!(stdout, cursor::Show);
+
+		hook(info)
+	}));
+
+	Ok(())
+}
+
+fn main() -> color_eyre::Result<()> {
+	install()?;
 
 	let mut app = Application::new().wrap_err("music error")?;
 	app.start().wrap_err("music error")?;
