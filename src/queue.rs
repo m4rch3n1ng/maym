@@ -112,8 +112,8 @@ impl Track {
 	/// return str representation of [`Track::path`]
 	///
 	/// used for [`Player::replace`], as mpv can only handle utf8 strings
-	pub fn as_str(&self) -> &str {
-		self.path.as_str()
+	pub fn to_quoted_string(&self) -> String {
+		format!("{:?}", self.path.as_str())
 	}
 
 	/// format track into a [`ratatui::text::Line`] struct
@@ -846,7 +846,7 @@ mod test {
 		let mut des = deserializer("\"mock/list 01/track 01.mp3\"");
 		let track = Track::maybe_deserialize(&mut des)?;
 		let track = track.unwrap();
-		assert_eq!(track.as_str(), "mock/list 01/track 01.mp3");
+		assert_eq!(track.to_quoted_string(), "\"mock/list 01/track 01.mp3\"");
 
 		let mut des = deserializer("\"mock/list 01/track 08.mp3\"");
 		let track = Track::maybe_deserialize(&mut des)?;

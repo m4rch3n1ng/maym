@@ -161,19 +161,17 @@ impl Player {
 
 	fn revive(&mut self, track: &Track, start: Duration) -> Result<(), PlayerError> {
 		let start = format!("start={},pause=yes", start.as_secs());
-		let track = format!("{:?}", track.as_str());
-
-		self.0
-			.command("loadfile", &[&track, "replace", "0", &start])?;
+		self.0.command(
+			"loadfile",
+			&[&track.to_quoted_string(), "replace", "0", &start],
+		)?;
 
 		Ok(())
 	}
 
 	pub fn replace(&mut self, track: &Track) {
-		let track = format!("{:?}", track.as_str());
-
 		self.0
-			.command("loadfile", &[&track, "replace"])
+			.command("loadfile", &[&track.to_quoted_string(), "replace"])
 			.map_err(PlayerError::from)
 			.expect("error loading file");
 	}
