@@ -108,14 +108,13 @@ fn seek_seek(
 	let gauge_area = chunks[1];
 	let progress = elapsed.as_secs_f64() / duration.as_secs_f64();
 	let block = Block::default().padding(Padding::new(0, 2, 0, 0));
+
+	let (filled, unfilled) = utils::style::gauge_style(state.paused);
 	let gauge = LineGauge::default()
 		.block(block)
 		.label("")
-		.gauge_style(if state.paused {
-			utils::style::accent().dim()
-		} else {
-			utils::style::accent()
-		})
+		.filled_style(filled)
+		.unfilled_style(unfilled)
 		.line_set(symbols::line::THICK)
 		.ratio(progress);
 	frame.render_widget(gauge, gauge_area);

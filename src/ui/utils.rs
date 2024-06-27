@@ -22,7 +22,7 @@ pub mod widgets {
 
 pub mod style {
 	use crate::config::Config;
-	use ratatui::style::{Color, Style};
+	use ratatui::style::{Color, Style, Stylize};
 	use std::sync::OnceLock;
 
 	static ACCENT: OnceLock<Color> = OnceLock::new();
@@ -36,6 +36,14 @@ pub mod style {
 	pub fn accent() -> Style {
 		let color = ACCENT.get().unwrap_or(&Color::Cyan);
 		Style::new().fg(*color)
+	}
+
+	pub fn gauge_style(paused: bool) -> (Style, Style) {
+		if paused {
+			(accent().dim(), Style::new().dim())
+		} else {
+			(accent(), Style::new())
+		}
 	}
 }
 
