@@ -1,6 +1,5 @@
 use crate::queue::{Queue, Track};
 use crate::state::State;
-use conv::{ConvUtil, UnwrapOrSaturate};
 use libmpv::Mpv;
 use std::{fmt::Debug, rc::Rc, time::Duration};
 use thiserror::Error;
@@ -205,7 +204,7 @@ impl Player {
 			.get_property::<i64>("volume")
 			.map_err(PlayerError::from)
 			.expect("couldn't get volume");
-		vol.approx_as::<u64>().unwrap_or_saturate()
+		i64::max(0, vol) as u64
 	}
 
 	pub fn paused(&self) -> bool {

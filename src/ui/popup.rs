@@ -5,13 +5,12 @@ use crate::{
 	queue::{Queue, QueueError, Track},
 	state::State,
 };
-use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	layout::Rect,
 	style::{Modifier, Style, Stylize},
+	terminal::Frame,
 	text::Line,
 	widgets::{Block, Clear, List as ListWidget, ListItem, ListState, Paragraph},
-	terminal::Frame,
 };
 
 #[derive(Debug)]
@@ -54,7 +53,7 @@ impl<T: PopupTrait> Popup<T> {
 	fn update_scroll(&mut self, area: Rect, state: &State) {
 		let list = self.inner.list(state);
 
-		let lines = list.len().approx_as::<u16>().unwrap_or_saturate();
+		let lines = usize::min(list.len(), u16::MAX as usize) as u16;
 		let height = utils::popup::block().inner(area).height;
 
 		let n_scroll_max = lines.saturating_sub(height);

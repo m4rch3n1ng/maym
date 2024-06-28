@@ -1,13 +1,12 @@
 use super::utils;
 use crate::state::State;
-use conv::{ConvUtil, UnwrapOrSaturate};
 use ratatui::{
 	layout::{Alignment, Constraint, Direction, Layout, Rect},
 	style::{Style, Stylize},
 	symbols,
+	terminal::Frame,
 	text::{Line, Span},
 	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
-	terminal::Frame,
 };
 use std::time::Duration;
 
@@ -94,7 +93,7 @@ fn seek_seek(
 	]);
 
 	let len = fmt_elapsed.len() + 3 + fmt_duration.len() + 4;
-	let len = len.approx_as::<u16>().unwrap_or_saturate();
+	let len = u16::try_from(len).unwrap();
 	let chunks = Layout::default()
 		.direction(Direction::Horizontal)
 		.constraints([Constraint::Max(len), Constraint::Min(0)])
