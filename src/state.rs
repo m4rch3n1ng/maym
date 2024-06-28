@@ -1,5 +1,7 @@
 //! application [`State`]
 
+#[cfg(feature = "mpris")]
+use crate::mpris::{Mpris, MprisUpdate};
 use crate::{
 	config::CONFIG_DIR,
 	player::Player,
@@ -17,6 +19,9 @@ use std::{
 	time::Duration,
 };
 use thiserror::Error;
+
+#[cfg(not(feature = "mpris"))]
+type Mpris = ();
 
 /// path for state file
 static STATE_PATH: LazyLock<PathBuf> = LazyLock::new(|| CONFIG_DIR.join("status.json"));
@@ -128,16 +133,42 @@ impl State {
 	}
 
 	/// update self to reflect current application state
-	pub fn tick(&mut self, player: &mut Player, queue: &Queue, ui: &mut Ui) {
+	pub fn tick(&mut self, player: &mut Player, queue: &Queue, ui: &mut Ui, mpris: &mut Mpris) {
+		#[cfg(not(feature = "mpris"))]
+		let _ = mpris;
+
 		player.update();
 
-		self.volume = player.volume();
-		self.paused = player.paused();
-		self.muted = player.muted();
+		let volume = player.volume();
+		if self.volume != volume {
+			self.volume = volume;
+			#[cfg(feature = "mpris")]
+			mpris.update(MprisUpdate::Volume);
+		}
+
+		let paused = player.paused();
+		if self.paused != paused {
+			self.paused = paused;
+			#[cfg(feature = "mpris")]
+			mpris.update(MprisUpdate::PlayerStatus);
+		}
+
+		let muted = player.muted();
+		if self.muted != muted {
+			self.muted = muted;
+			#[cfg(feature = "mpris")]
+			mpris.update(MprisUpdate::Volume);
+		}
+
 		self.duration = player.duration().map(DurationWrap);
 		self.elapsed = player.elapsed().map(DurationWrap);
 
-		self.shuffle = queue.is_shuffle();
+		let shuffle = queue.is_shuffle();
+		if self.shuffle != shuffle {
+			self.shuffle = shuffle;
+			#[cfg(feature = "mpris")]
+			mpris.update(MprisUpdate::Shuffle);
+		}
 
 		let q = queue.path();
 		if self.queue.as_deref() != q {
@@ -148,6 +179,8 @@ impl State {
 		if self.track.as_ref() != queue.track() {
 			ui.reset(queue);
 			self.track = queue.track().cloned();
+			#[cfg(feature = "mpris")]
+			mpris.update(MprisUpdate::Metadata);
 		}
 	}
 

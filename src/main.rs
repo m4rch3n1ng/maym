@@ -156,7 +156,10 @@ impl Application {
 				#[cfg(not(feature = "mpris"))]
 				let state = &mut self.state;
 
-				state.tick(&mut self.player, &self.queue, &mut self.ui);
+				#[cfg(feature = "mpris")]
+				state.tick(&mut self.player, &self.queue, &mut self.ui, &mut self.mpris);
+				#[cfg(not(feature = "mpris"))]
+				state.tick(&mut self.player, &self.queue, &mut self.ui, &mut ());
 
 				if !skip_done {
 					self.queue.done(&mut self.player);

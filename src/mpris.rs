@@ -1,5 +1,4 @@
 use crate::state::State;
-use smol::future;
 use std::{
 	collections::HashMap,
 	sync::{
@@ -231,8 +230,20 @@ pub enum MprisEvent {
 }
 
 #[derive(Debug)]
+pub enum MprisUpdate {
+	PlayerStatus,
+	Shuffle,
+	Volume,
+	Metadata,
+}
+
+#[derive(Debug)]
 pub struct Mpris {
+	/// receive events from [`MprisPlayer`]
 	rx: Receiver<MprisEvent>,
+	/// send state updates to [`Mpris::serve`]
+	/// to notify dbus for state change
+	up: Sender<MprisUpdate>,
 }
 
 impl Mpris {
@@ -242,15 +253,21 @@ impl Mpris {
 		let root = MprisRoot;
 		let player = MprisPlayer { tx, state };
 
+		let (tx_up, rx_up) = channel::<MprisUpdate>();
+
 		smol::spawn(async {
-			let _ = Mpris::serve(root, player).await;
+			let _ = Mpris::serve(root, player, rx_up).await;
 		})
 		.detach();
 
-		Mpris { rx }
+		Mpris { rx, up: tx_up }
 	}
 
-	async fn serve(root: MprisRoot, player: MprisPlayer) -> Result<(), zbus::Error> {
+	async fn serve(
+		root: MprisRoot,
+		player: MprisPlayer,
+		updates: Receiver<MprisUpdate>,
+	) -> Result<(), zbus::Error> {
 		let connection = connection::Builder::session()?
 			.name("org.mpris.MediaPlayer2.maym")?
 			.serve_at("/org/mpris/MediaPlayer2", root)?
@@ -258,10 +275,37 @@ impl Mpris {
 			.build()
 			.await?;
 
-		std::mem::forget(connection);
-		future::pending::<()>().await;
+		let object_server = connection.object_server();
+		let player_interface_ref = object_server
+			.interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
+			.await?;
+		let player_interface = player_interface_ref.get().await;
+
+		let signal_context = player_interface_ref.signal_emitter();
+		for update in updates {
+			match update {
+				MprisUpdate::PlayerStatus => {
+					player_interface
+						.playback_status_changed(signal_context)
+						.await?;
+				}
+				MprisUpdate::Metadata => {
+					player_interface.metadata_changed(signal_context).await?;
+				}
+				MprisUpdate::Shuffle => {
+					player_interface.shuffle_changed(signal_context).await?;
+				}
+				MprisUpdate::Volume => {
+					player_interface.volume_changed(signal_context).await?;
+				}
+			}
+		}
 
 		Ok(())
+	}
+
+	pub fn update(&mut self, updated: MprisUpdate) {
+		let _ = self.up.send(updated);
 	}
 
 	pub fn recv(&self) -> Option<MprisEvent> {
