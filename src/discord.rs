@@ -1,6 +1,6 @@
 use crate::state::State;
 use discord_rich_presence::{
-	activity::{Activity, Timestamps},
+	activity::{Activity, Assets, Timestamps},
 	DiscordIpc, DiscordIpcClient,
 };
 use std::{
@@ -40,6 +40,10 @@ impl Discord {
 			let artist = track.artist().unwrap_or("unknown artist");
 
 			let activity = Activity::new().details(title).state(artist);
+
+			let asset = Assets::new().large_image("icon");
+			let activity = activity.assets(asset);
+
 			if state.paused {
 				Some(activity)
 			} else if let Some((elapsed, duration)) = state.elapsed_duration() {
