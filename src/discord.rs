@@ -8,16 +8,62 @@ use std::{
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-pub struct Discord(DiscordIpcClient);
+/// amt of time to wait before a retry
+///
+/// todo maybe don't wait,
+/// but retry on track change
+const WAIT: Duration = Duration::from_secs(30);
+
+const CLIENT_ID: &str = "1170754365619982346";
+
+enum Client {
+	Discord(DiscordIpcClient),
+	Invalid(SystemTime),
+}
+
+impl Client {
+	fn revive(&mut self) {
+		match self {
+			Client::Discord(_) => (),
+			Client::Invalid(prev) => {
+				let now = SystemTime::now();
+				let diff = now.duration_since(*prev).unwrap_or(WAIT);
+
+				if diff >= WAIT {
+					let mut discord = DiscordIpcClient::new(CLIENT_ID).expect("should never panic");
+					if let Ok(()) = discord.connect() {
+						let discord = Client::Discord(discord);
+						*self = discord;
+					} else {
+						*prev = now;
+					}
+				}
+			}
+		}
+	}
+}
+
+impl Debug for Client {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Client::Discord(_) => f.debug_tuple("Discord").field(&..).finish(),
+			Client::Invalid(_) => f.write_str("Invalid"),
+		}
+	}
+}
+
+#[derive(Debug)]
+pub struct Discord(Client);
 
 impl Discord {
 	pub fn new() -> Self {
-		let client = DiscordIpcClient::new("1170754365619982346").unwrap();
-		Discord(client)
-	}
+		let mut discord = DiscordIpcClient::new(CLIENT_ID).expect("should never panic");
+		let client = match discord.connect() {
+			Ok(_) => Client::Discord(discord),
+			Err(_) => Client::Invalid(SystemTime::now()),
+		};
 
-	pub fn connect(&mut self) {
-		self.0.connect().unwrap();
+		Discord(client)
 	}
 
 	fn timestamps(duration: Duration, elapsed: Duration) -> (i64, i64) {
@@ -34,7 +80,7 @@ impl Discord {
 		(start, end)
 	}
 
-	fn activity<'s>(&self, state: &'s State) -> Option<Activity<'s>> {
+	fn activity(state: &State) -> Option<Activity> {
 		if let Some(track) = state.track.as_ref() {
 			let title = track.title().unwrap_or("unknown title");
 			let artist = track.artist().unwrap_or("unknown artist");
@@ -60,25 +106,37 @@ impl Discord {
 		}
 	}
 
-	pub fn state(&mut self, state: &State) {
-		let activity = self.activity(state);
-		if let Some(activity) = activity {
-			self.0.set_activity(activity).unwrap();
-		} else {
-			self.0.clear_activity().unwrap();
+	fn client(&mut self) -> Option<&mut DiscordIpcClient> {
+		self.0.revive();
+		match &mut self.0 {
+			Client::Discord(discord) => Some(discord),
+			Client::Invalid(_) => None,
 		}
 	}
-}
 
-impl Debug for Discord {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("Discord").finish_non_exhaustive()
+	pub fn state(&mut self, state: &State) {
+		let Some(discord) = self.client() else { return };
+
+		let activity = Self::activity(state);
+		let res = if let Some(activity) = activity {
+			discord.set_activity(activity)
+		} else {
+			discord.clear_activity()
+		};
+
+		if res.is_err() {
+			let now = SystemTime::now();
+			let now = Client::Invalid(now);
+			self.0 = now;
+		}
 	}
 }
 
 impl Drop for Discord {
 	fn drop(&mut self) {
-		let _ = self.0.clear_activity();
+		if let Client::Discord(discord) = &mut self.0 {
+			let _ = discord.clear_activity();
+		}
 	}
 }
 

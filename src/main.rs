@@ -64,9 +64,7 @@ impl Application {
 		let queue = Queue::state(&state)?;
 
 		#[cfg(feature = "discord")]
-		let mut discord = Discord::new();
-		#[cfg(feature = "discord")]
-		discord.connect();
+		let discord = Discord::new();
 
 		let mut player = Player::new()?;
 		player.state(&queue, &state)?;
@@ -113,8 +111,6 @@ impl Application {
 
 			if last.elapsed() >= self.tick {
 				self.state.tick(&self.player, &self.queue, &mut self.ui);
-				#[cfg(feature = "discord")]
-				self.discord.state(&self.state);
 
 				if !skip_done {
 					self.queue.done(&mut self.player, &self.state)?;
@@ -127,6 +123,9 @@ impl Application {
 				// todo amt
 				if ticks >= 10 {
 					self.state.write()?;
+					#[cfg(feature = "discord")]
+					self.discord.state(&self.state);
+
 					ticks = 0;
 				} else {
 					ticks += 1;
