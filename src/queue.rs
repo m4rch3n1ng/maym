@@ -113,7 +113,11 @@ impl Track {
 	///
 	/// used for [`Player::replace`], as mpv can only handle utf8 strings
 	pub fn to_quoted_string(&self) -> String {
-		format!("{:?}", self.path.as_str())
+		let mut quoted = self.path.as_str().replace("\"", "\\\"");
+		quoted.insert(0, '"');
+		quoted.push('"');
+
+		quoted
 	}
 
 	/// format track into a [`ratatui::text::Line`] struct
