@@ -256,10 +256,11 @@ impl Mpris {
 
 		let (tx_up, rx_up) = channel::<MprisUpdate>();
 
-		smol::spawn(async {
-			let _ = Mpris::serve(root, player, rx_up).await;
-		})
-		.detach();
+		let _ = std::thread::spawn(|| {
+			async_io::block_on(async {
+				let _ = Mpris::serve(root, player, rx_up).await;
+			});
+		});
 
 		Mpris { rx, up: tx_up }
 	}

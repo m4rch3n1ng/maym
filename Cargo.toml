@@ -5,6 +5,7 @@ edition = "2021"
 rust-version = "1.72.1"
 
 [dependencies]
+async-io = { version = "2.3.4", optional = true }
 camino = { version = "1.1.7", features = ["serde1"] }
 color-eyre = { version = "0.6.3", default-features = false, features = ["track-caller"] }
 crossterm = "0.27.0"
@@ -17,11 +18,10 @@ rand = "0.8.5"
 ratatui = "0.27.0"
 serde = "1.0.203"
 serde_json = "1.0.118"
-smol = { version = "2.0.0", optional = true }
 thiserror = "1.0.61"
 unicase = "2.7.0"
 zbus = { version = "4.3.0", optional = true }
 
 [features]
 default = ["mpris"]
-mpris = ["dep:smol", "dep:zbus"]
+mpris = ["dep:async-io", "dep:zbus"]
