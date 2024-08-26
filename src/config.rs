@@ -51,15 +51,27 @@ fn config_dir() -> PathBuf {
 /// config error
 #[derive(Debug, Error)]
 pub enum ConfigError {
+	#[error("file {0:?} not found")]
+	FileNotFound(PathBuf),
 	/// io error
 	#[error("io error")]
-	IoError(#[from] std::io::Error),
+	IoError(#[source] std::io::Error),
 	/// serde error
 	#[error("serde error")]
 	SerdeJsonError(#[from] serde_json::Error),
 	/// list doesn't exist
 	#[error("list {0:?} doesn't exist")]
 	ListDoesntExist(Utf8PathBuf),
+}
+
+impl From<std::io::Error> for ConfigError {
+	fn from(io: std::io::Error) -> Self {
+		if let std::io::ErrorKind::NotFound = io.kind() {
+			ConfigError::FileNotFound(CONFIG_PATH.clone())
+		} else {
+			ConfigError::IoError(io)
+		}
+	}
 }
 
 /// [`Child`] of [`List`]

@@ -6,7 +6,7 @@ rust-version = "1.72.1"
 
 [dependencies]
 camino = { version = "1.1.7", features = ["serde1"] }
-color-eyre = "0.6.3"
+color-eyre = { version = "0.6.3", default-features = false, features = ["track-caller"] }
 conv = "0.3.3"
 crossterm = "0.27.0"
 dirs = "5.0.1"
