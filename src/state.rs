@@ -81,7 +81,7 @@ impl Serialize for DurationWrap {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
 	/// volume
-	pub volume: u64,
+	pub volume: u8,
 	/// is paused
 	#[serde(skip, default = "_default_true")]
 	pub paused: bool,
@@ -139,7 +139,9 @@ impl State {
 	}
 
 	/// update self to reflect current application state
-	pub fn tick(&mut self, player: &Player, queue: &Queue, ui: &mut Ui) {
+	pub fn tick(&mut self, player: &mut Player, queue: &Queue, ui: &mut Ui) {
+		player.update();
+
 		self.volume = player.volume();
 		self.paused = player.paused();
 		self.muted = player.muted();

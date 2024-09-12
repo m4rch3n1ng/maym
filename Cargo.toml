@@ -6,13 +6,15 @@ edition = "2021"
 [dependencies]
 camino = { version = "1.1.9", features = ["serde1"] }
 color-eyre = { version = "0.6.3", default-features = false, features = ["track-caller"] }
+cpal = { version = "0.15.3", default-features = false }
+creek = { version = "1.2.2", default-features = false, features = ["decode", "decode-mp3"] }
 crossterm = "0.28.1"
 dirs = "5.0.1"
 id3 = { version = "1.16.0", default-features = false }
 itertools = "0.13.0"
-libmpv = { git = "https://github.com/ParadoxSpiral/libmpv-rs", version = "2.0.1" }
 rand = "0.8.5"
 ratatui = "0.29.0"
+rtrb = "0.3.1"
 serde = "1.0.216"
 serde_json = "1.0.133"
 thiserror = "2.0.7"

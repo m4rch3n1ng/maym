@@ -109,17 +109,6 @@ impl Track {
 		recurse_tracks.chain(tracks).collect()
 	}
 
-	/// return str representation of [`Track::path`]
-	///
-	/// used for [`Player::replace`], as mpv can only handle utf8 strings
-	pub fn to_quoted_string(&self) -> String {
-		let mut quoted = self.path.as_str().replace('\"', "\\\"");
-		quoted.insert(0, '"');
-		quoted.push('"');
-
-		quoted
-	}
-
 	/// format track into a [`ratatui::text::Line`] struct
 	///
 	/// takes [`Queue`] to highlight currently playing track
@@ -519,7 +508,6 @@ impl Queue {
 	/// and pushes last track to [`Queue::last`]
 	fn replace(&mut self, track: Track, player: &mut Player) {
 		player.replace(&track);
-		player.pause(false);
 
 		// only replace and add to last, if it isn't already playing
 		// (i.e. it hasn't yet been added to last)
@@ -846,11 +834,6 @@ mod test {
 		let mut des = deserializer("null");
 		let track = Track::maybe_deserialize(&mut des)?;
 		assert_eq!(track, None);
-
-		let mut des = deserializer("\"mock/list 01/track 01.mp3\"");
-		let track = Track::maybe_deserialize(&mut des)?;
-		let track = track.unwrap();
-		assert_eq!(track.to_quoted_string(), "\"mock/list 01/track 01.mp3\"");
 
 		let mut des = deserializer("\"mock/list 01/track 08.mp3\"");
 		let track = Track::maybe_deserialize(&mut des)?;
