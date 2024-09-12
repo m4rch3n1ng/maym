@@ -7,7 +7,7 @@ const fn version() -> &'static str {
 }
 
 #[derive(Debug, Parser)]
-#[command(author, version = version(), about, long_about=None)]
+#[command(author, version = version(), about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
 	#[clap(subcommand)]
