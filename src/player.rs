@@ -140,7 +140,14 @@ impl Player {
 		Ok(player)
 	}
 
-	pub fn state(&mut self, queue: &Queue, state: &State) -> color_eyre::Result<()> {
+	pub fn with_state(queue: &Queue, state: &State) -> color_eyre::Result<Self> {
+		let mut player = Player::new()?;
+		player.state(queue, state)?;
+
+		Ok(player)
+	}
+
+	fn state(&mut self, queue: &Queue, state: &State) -> color_eyre::Result<()> {
 		self.0
 			.set_property("volume", state.volume as i64)
 			.map_err(PlayerError::from)?;
