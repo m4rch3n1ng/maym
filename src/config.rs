@@ -410,10 +410,10 @@ impl serde::de::Visitor<'_> for ColorVis {
 pub struct Config {
 	/// amount to increase / decrease volume by in percent
 	#[serde(skip_serializing_if = "Option::is_none")]
-	vol: Option<u64>,
+	vol: Option<u8>,
 	/// amount to seek by in tracks in seconds
 	#[serde(skip_serializing_if = "Option::is_none")]
-	seek: Option<u64>,
+	seek: Option<u8>,
 	/// ui accent color
 	#[serde(skip_serializing_if = "Option::is_none")]
 	accent: Option<ColorWrap>,
@@ -444,7 +444,7 @@ impl Config {
 	#[inline]
 	pub fn seek(&self) -> Duration {
 		let seek = self.seek.unwrap_or(5);
-		Duration::from_secs(seek)
+		Duration::from_secs(u64::from(seek))
 	}
 
 	/// get and deref [`Config::color`] to [`ratatui::style::Color`]
@@ -455,7 +455,7 @@ impl Config {
 
 	/// get [`Config::vol`] or unwrap to default value of 5
 	#[inline]
-	pub fn vol(&self) -> u64 {
+	pub fn vol(&self) -> u8 {
 		self.vol.unwrap_or(5)
 	}
 }
