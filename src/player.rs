@@ -94,15 +94,19 @@ impl Process {
 
 					if cpal_sample_rate != stream_sample_rate {
 						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
+
+						let gcd = gcd(stream_sample_rate, cpal_sample_rate);
+						let oversampling_factor = stream_sample_rate / gcd;
+
 						self.resampler = Some(
 							SincFixedIn::<f32>::new(
 								ratio,
-								2.0,
+								1.0,
 								SincInterpolationParameters {
 									sinc_len: 256,
 									f_cutoff: 0.95,
-									interpolation: SincInterpolationType::Linear,
-									oversampling_factor: 128,
+									interpolation: SincInterpolationType::Nearest,
+									oversampling_factor: oversampling_factor as usize,
 									window: WindowFunction::Blackman,
 								},
 								stream.block_size(),
@@ -197,6 +201,15 @@ impl Process {
 		for sample in data.iter_mut() {
 			*sample = 0.;
 		}
+	}
+}
+
+fn gcd(x: u32, y: u32) -> u32 {
+	if y == 0 {
+		x
+	} else {
+		let v = x % y;
+		gcd(y, v)
 	}
 }
 
@@ -308,8 +321,8 @@ impl Player {
 		// these are the options used by the
 		// player example of creek
 		let opts = ReadStreamOptions {
-			num_cache_blocks: 20,
-			num_caches: 2,
+			num_cache_blocks: 240,
+			num_caches: 4,
 			..ReadStreamOptions::default()
 		};
 
