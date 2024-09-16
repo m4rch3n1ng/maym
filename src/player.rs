@@ -46,6 +46,7 @@ struct Process {
 	buffer: VecDeque<f32>,
 	stream_config: StreamConfig,
 	resampler: Option<SincFixedIn<f32>>,
+	resample_buffer: Vec<Vec<f32>>,
 
 	// status
 	status: PlaybackStatus,
@@ -67,6 +68,7 @@ impl Process {
 			buffer: VecDeque::new(),
 			stream_config,
 			resampler: None,
+			resample_buffer: vec![Vec::new(), Vec::new()],
 
 			status: PlaybackStatus::Paused,
 			volume: 0.45,
@@ -163,10 +165,18 @@ impl Process {
 				let ch2 = read_data.read_channel(1);
 
 				if let Some(resampler) = &mut self.resampler {
-					let read_data = resampler.process(&[ch1, ch2], None).unwrap();
+					let frames = resampler.output_frames_next();
+					for channel in &mut self.resample_buffer {
+						channel.resize(frames, 0.0);
+					}
 
-					for i in 0..read_data[0].len() {
-						self.buffer.extend(read_data.iter().map(|s| s[i]));
+					let (_, out_len) = resampler
+						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer, None)
+						.unwrap();
+
+					for i in 0..out_len {
+						self.buffer
+							.extend(self.resample_buffer.iter().map(|s| s[i]));
 					}
 				} else {
 					for i in 0..read_data.num_frames() {
