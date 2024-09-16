@@ -6,7 +6,10 @@ use cpal::{
 };
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
 use rtrb::{Consumer, Producer, RingBuffer};
-use std::{fmt::Debug, time::Duration};
+use rubato::{
+	Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+};
+use std::{collections::VecDeque, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PlaybackStatus {
@@ -31,15 +34,18 @@ enum ToProcess {
 	},
 	Status(PlaybackStatus),
 	Volume(f32),
-	SeekTo(usize),
+	SeekTo(Duration),
 }
 
 enum FromProcess {
-	Playhead(usize),
+	Playhead(Duration),
 }
 
 struct Process {
 	stream: Option<Box<ReadDiskStream<SymphoniaDecoder>>>,
+	buffer: VecDeque<f32>,
+	stream_config: StreamConfig,
+	resampler: Option<SincFixedIn<f32>>,
 
 	// status
 	status: PlaybackStatus,
@@ -51,9 +57,16 @@ struct Process {
 }
 
 impl Process {
-	pub fn new(from_main_rx: Consumer<ToProcess>, to_main_tx: Producer<FromProcess>) -> Self {
+	pub fn new(
+		stream_config: StreamConfig,
+		from_main_rx: Consumer<ToProcess>,
+		to_main_tx: Producer<FromProcess>,
+	) -> Self {
 		Process {
 			stream: None,
+			buffer: VecDeque::new(),
+			stream_config,
+			resampler: None,
 
 			status: PlaybackStatus::Paused,
 			volume: 0.45,
@@ -72,12 +85,38 @@ impl Process {
 					frame,
 				} => {
 					stream.seek(frame, SeekMode::Auto).unwrap();
-					let _ = self
-						.to_main_tx
-						.push(FromProcess::Playhead(stream.playhead()));
+
+					let duration = Process::playhead(&stream);
+					let _ = self.to_main_tx.push(FromProcess::Playhead(duration));
+
+					let cpal_sample_rate = self.stream_config.sample_rate.0;
+					let stream_sample_rate = stream.info().sample_rate.unwrap();
+
+					if cpal_sample_rate != stream_sample_rate {
+						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
+						self.resampler = Some(
+							SincFixedIn::<f32>::new(
+								ratio,
+								2.0,
+								SincInterpolationParameters {
+									sinc_len: 256,
+									f_cutoff: 0.95,
+									interpolation: SincInterpolationType::Linear,
+									oversampling_factor: 128,
+									window: WindowFunction::Blackman,
+								},
+								stream.block_size(),
+								2,
+							)
+							.unwrap(),
+						);
+					} else {
+						self.resampler = None;
+					};
 
 					self.status = status;
 					self.stream = Some(stream);
+					self.buffer.clear();
 				}
 				ToProcess::Status(status) => {
 					self.status = status;
@@ -86,13 +125,16 @@ impl Process {
 					debug_assert!((0.0..=1.0).contains(&volume));
 					self.volume = volume;
 				}
-				ToProcess::SeekTo(frame) => {
+				ToProcess::SeekTo(duration) => {
 					if let Some(stream) = &mut self.stream {
-						stream.seek(frame, SeekMode::Auto).unwrap();
+						let sample_rate = stream.info().sample_rate.unwrap();
+						let frame = duration.as_secs_f64() * sample_rate as f64;
+						stream.seek(frame as usize, SeekMode::Auto).unwrap();
 
-						let _ = self
-							.to_main_tx
-							.push(FromProcess::Playhead(stream.playhead()));
+						self.buffer.clear();
+
+						let duration = Process::playhead(stream);
+						let _ = self.to_main_tx.push(FromProcess::Playhead(duration));
 					}
 				}
 			}
@@ -109,36 +151,46 @@ impl Process {
 				return;
 			}
 
-			let read_frames = data.len() / 2;
-			let read_data = stream.read(read_frames).unwrap();
+			while self.buffer.len() < data.len() {
+				let read_data = stream.read(stream.block_size()).unwrap();
 
-			if read_data.num_channels() == 1 {
-				let ch = read_data.read_channel(0);
-
-				for i in 0..read_data.num_frames() {
-					data[i * 2] = ch[i];
-					data[i * 2 + 1] = ch[i];
-				}
-			} else if read_data.num_channels() == 2 {
+				assert_eq!(read_data.num_channels(), 2, "mono audio not supported ):");
 				let ch1 = read_data.read_channel(0);
 				let ch2 = read_data.read_channel(1);
 
-				for i in 0..read_data.num_frames() {
-					data[i * 2] = ch1[i];
-					data[i * 2 + 1] = ch2[i];
+				if let Some(resampler) = &mut self.resampler {
+					let read_data = resampler.process(&[ch1, ch2], None).unwrap();
+
+					for i in 0..read_data[0].len() {
+						self.buffer.extend(read_data.iter().map(|s| s[i]));
+					}
+				} else {
+					for i in 0..read_data.num_frames() {
+						self.buffer.push_back(ch1[i]);
+						self.buffer.push_back(ch2[i]);
+					}
 				}
 			}
 
+			for sample in &mut *data {
+				*sample = self.buffer.pop_front().unwrap();
+			}
+
 			// apply volume
-			for sample in data.iter_mut() {
+			for sample in &mut *data {
 				// mpv uses `pow(volume, 3)`
 				*sample *= self.volume.powf(3.);
 			}
 
-			let _ = self
-				.to_main_tx
-				.push(FromProcess::Playhead(stream.playhead()));
+			let duration = Process::playhead(stream);
+			let _ = self.to_main_tx.push(FromProcess::Playhead(duration));
 		}
+	}
+
+	fn playhead<D: creek::Decoder>(stream: &ReadDiskStream<D>) -> Duration {
+		let sample_rate = stream.info().sample_rate.unwrap();
+		let playhead = stream.playhead() as f64 / sample_rate as f64;
+		Duration::from_secs_f64(playhead)
 	}
 
 	fn silence(data: &mut [f32]) {
@@ -149,8 +201,6 @@ impl Process {
 }
 
 pub struct Player {
-	stream_config: StreamConfig,
-
 	// state
 	muted: bool,
 	volume: u8,
@@ -174,13 +224,14 @@ impl Player {
 		let (to_process_tx, from_main_rx) = RingBuffer::<ToProcess>::new(64);
 		let (to_main_tx, from_process_rx) = RingBuffer::<FromProcess>::new(256);
 
-		let mut process = Process::new(from_main_rx, to_main_tx);
-
 		let host = cpal::default_host();
 		let device = host.default_output_device().unwrap();
 
 		let default_output_config = device.default_output_config().unwrap();
 		let stream_config = StreamConfig::from(default_output_config);
+
+		let mut process = Process::new(stream_config.clone(), from_main_rx, to_main_tx);
+
 		let stream = device
 			.build_output_stream(
 				&stream_config,
@@ -194,8 +245,6 @@ impl Player {
 		std::mem::forget(stream);
 
 		let player = Player {
-			stream_config,
-
 			muted: false,
 			volume: 45,
 
@@ -219,10 +268,8 @@ impl Player {
 	pub fn update(&mut self) {
 		while let Ok(msg) = self.from_process_rx.pop() {
 			match msg {
-				FromProcess::Playhead(playhead) => {
-					let secs = playhead as f64 / self.stream_config.sample_rate.0 as f64;
-					let secs = Duration::from_secs_f64(secs);
-					self.elapsed = Some(secs);
+				FromProcess::Playhead(duration) => {
+					self.elapsed = Some(duration);
 				}
 			}
 		}
@@ -277,12 +324,13 @@ impl Player {
 		read_stream.block_until_ready().unwrap();
 
 		let num_frames = read_stream.info().num_frames;
-		let secs = num_frames as f64 / self.stream_config.sample_rate.0 as f64;
+		let sample_rate = read_stream.info().sample_rate.unwrap();
+		let secs = num_frames as f64 / sample_rate as f64;
 		self.duration = Some(Duration::from_secs_f64(secs));
+
 		self.status = status;
 
-		let start_frame = start.as_secs_f32() * self.stream_config.sample_rate.0 as f32;
-
+		let start_frame = start.as_secs_f64() * sample_rate as f64;
 		self.to_process_tx
 			.push(ToProcess::UseStream {
 				stream: Box::new(read_stream),
@@ -293,9 +341,7 @@ impl Player {
 	}
 
 	pub fn seek(&mut self, position: Duration) {
-		self.elapsed = Some(position);
-		let frame = position.as_secs_f32() * self.stream_config.sample_rate.0 as f32;
-		let _ = self.to_process_tx.push(ToProcess::SeekTo(frame as usize));
+		let _ = self.to_process_tx.push(ToProcess::SeekTo(position));
 	}
 
 	pub fn toggle(&mut self) {

@@ -247,6 +247,12 @@ fn install() -> color_eyre::Result<()> {
 		let _ = execute!(stdout, cursor::Show);
 
 		hook(info);
+
+		let thread = std::thread::current();
+		if thread.name() != Some("main") {
+			// exit when panicking in a thread
+			std::process::exit(1);
+		}
 	}));
 
 	Ok(())
