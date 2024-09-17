@@ -30,7 +30,6 @@ enum ToProcess {
 	UseStream {
 		stream: Box<ReadDiskStream<SymphoniaDecoder>>,
 		status: PlaybackStatus,
-		frame: usize,
 	},
 	Status(PlaybackStatus),
 	Volume(f32),
@@ -81,13 +80,7 @@ impl Process {
 	pub fn process(&mut self, data: &mut [f32]) {
 		while let Ok(msg) = self.from_main_rx.pop() {
 			match msg {
-				ToProcess::UseStream {
-					mut stream,
-					status,
-					frame,
-				} => {
-					stream.seek(frame, SeekMode::Auto).unwrap();
-
+				ToProcess::UseStream { stream, status } => {
 					let duration = Process::playhead(&stream);
 					let _ = self.to_main_tx.push(FromProcess::Playhead(duration));
 
@@ -148,7 +141,7 @@ impl Process {
 
 		if let Some(stream) = &mut self.stream {
 			if !stream.is_ready().unwrap() {
-				// stream not ready
+				Self::silence(data);
 				return;
 			}
 
@@ -328,37 +321,31 @@ impl Player {
 	}
 
 	fn replace_inner(&mut self, track: &Track, status: PlaybackStatus, start: Duration) {
-		// these are the options used by the
-		// player example of creek
-		let opts = ReadStreamOptions {
-			num_cache_blocks: 240,
-			num_caches: 4,
-			..ReadStreamOptions::default()
-		};
+		let opts = ReadStreamOptions::default();
 
 		let mut read_stream =
 			ReadDiskStream::<SymphoniaDecoder>::new(&track.path, 0, opts).unwrap();
 
-		// cache the start of the file into cache with index `0`
-		let _ = read_stream.cache(0, 0);
-		read_stream.seek(0, SeekMode::default()).unwrap();
+		// seek to the specified position in the track
+		let sample_rate = read_stream.info().sample_rate.unwrap();
+		let start_frame = start.as_secs_f64() * sample_rate as f64;
+		read_stream
+			.seek(start_frame as usize, SeekMode::Auto)
+			.unwrap();
 
 		// wait until the buffer is filled before sending it to the process thread
 		read_stream.block_until_ready().unwrap();
 
 		let num_frames = read_stream.info().num_frames;
-		let sample_rate = read_stream.info().sample_rate.unwrap();
 		let secs = num_frames as f64 / sample_rate as f64;
 		self.duration = Some(Duration::from_secs_f64(secs));
 
 		self.status = status;
 
-		let start_frame = start.as_secs_f64() * sample_rate as f64;
 		self.to_process_tx
 			.push(ToProcess::UseStream {
 				stream: Box::new(read_stream),
 				status,
-				frame: start_frame as usize,
 			})
 			.unwrap();
 	}
