@@ -21,8 +21,5 @@ serde_json = "1.0.133"
 thiserror = "2.0.7"
 unicase = "2.8.0"
 
-[profile.dev.package.rubato]
-opt-level = 2
-
 [profile.release]
 lto = "thin"
