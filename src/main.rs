@@ -21,7 +21,6 @@ use std::{
 };
 use thiserror::Error;
 
-mod cache;
 mod config;
 mod player;
 mod queue;
