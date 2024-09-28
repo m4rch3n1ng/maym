@@ -88,16 +88,21 @@ impl Process {
 					if cpal_sample_rate != stream_sample_rate {
 						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
 
-						self.resampler = Some(
-							FastFixedIn::<f32>::new(
-								ratio,
-								1.0,
-								PolynomialDegree::Linear,
-								stream.block_size(),
-								2,
-							)
-							.unwrap(),
-						);
+						let resampler = FastFixedIn::<f32>::new(
+							ratio,
+							1.0,
+							PolynomialDegree::Linear,
+							stream.block_size(),
+							2,
+						)
+						.unwrap();
+
+						let frames = resampler.output_frames_next();
+						for channel in &mut self.resample_buffer {
+							channel.resize(frames, 0.0);
+						}
+
+						self.resampler = Some(resampler);
 					} else {
 						self.resampler = None;
 					};
@@ -147,11 +152,6 @@ impl Process {
 				let ch2 = read_data.read_channel(1);
 
 				if let Some(resampler) = &mut self.resampler {
-					let frames = resampler.output_frames_next();
-					for channel in &mut self.resample_buffer {
-						channel.resize(frames, 0.0);
-					}
-
 					let (_, out_len) = resampler
 						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer, None)
 						.unwrap();
