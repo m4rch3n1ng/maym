@@ -6,9 +6,7 @@ use cpal::{
 };
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
 use rtrb::{Consumer, Producer, RingBuffer};
-use rubato::{
-	Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
-};
+use rubato::{FastFixedIn, PolynomialDegree, Resampler};
 use std::{collections::VecDeque, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,7 +42,7 @@ struct Process {
 	stream: Option<Box<ReadDiskStream<SymphoniaDecoder>>>,
 	buffer: VecDeque<f32>,
 	stream_config: StreamConfig,
-	resampler: Option<SincFixedIn<f32>>,
+	resampler: Option<FastFixedIn<f32>>,
 	resample_buffer: Vec<Vec<f32>>,
 
 	// status
@@ -90,20 +88,11 @@ impl Process {
 					if cpal_sample_rate != stream_sample_rate {
 						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
 
-						let gcd = gcd(stream_sample_rate, cpal_sample_rate);
-						let oversampling_factor = stream_sample_rate / gcd;
-
 						self.resampler = Some(
-							SincFixedIn::<f32>::new(
+							FastFixedIn::<f32>::new(
 								ratio,
 								1.0,
-								SincInterpolationParameters {
-									sinc_len: 256,
-									f_cutoff: 0.95,
-									interpolation: SincInterpolationType::Nearest,
-									oversampling_factor: oversampling_factor as usize,
-									window: WindowFunction::Blackman,
-								},
+								PolynomialDegree::Linear,
 								stream.block_size(),
 								2,
 							)
@@ -204,15 +193,6 @@ impl Process {
 		for sample in data.iter_mut() {
 			*sample = 0.;
 		}
-	}
-}
-
-fn gcd(x: u32, y: u32) -> u32 {
-	if y == 0 {
-		x
-	} else {
-		let v = x % y;
-		gcd(y, v)
 	}
 }
 
