@@ -652,7 +652,6 @@ dependencies = [
  "rubato",
  "serde",
  "serde_json",
- "symphonia",
  "thiserror",
  "unicase",
 ]
