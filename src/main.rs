@@ -13,7 +13,7 @@ use crossterm::{
 };
 use ratatui::{
 	backend::{Backend, CrosstermBackend},
-	terminal::Terminal,
+	Terminal,
 };
 use std::{
 	io,

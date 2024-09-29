@@ -8,9 +8,9 @@ use crate::{
 use ratatui::{
 	layout::Rect,
 	style::{Modifier, Style, Stylize},
-	terminal::Frame,
 	text::Line,
 	widgets::{Block, Clear, List as ListWidget, ListItem, ListState, Paragraph},
+	Frame,
 };
 
 #[derive(Debug)]

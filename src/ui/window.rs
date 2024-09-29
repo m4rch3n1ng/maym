@@ -4,9 +4,9 @@ use ratatui::{
 	layout::{Alignment, Constraint, Direction, Layout, Rect},
 	style::{Style, Stylize},
 	symbols,
-	terminal::Frame,
 	text::{Line, Span},
 	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
+	Frame,
 };
 use std::time::Duration;
 
