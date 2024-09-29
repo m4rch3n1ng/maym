@@ -43,7 +43,7 @@ struct Process {
 	buffer: VecDeque<f32>,
 	stream_config: StreamConfig,
 	resampler: Option<FastFixedIn<f32>>,
-	resample_buffer: Vec<Vec<f32>>,
+	resample_buffer: [Vec<f32>; 2],
 
 	// status
 	status: PlaybackStatus,
@@ -65,7 +65,7 @@ impl Process {
 			buffer: VecDeque::new(),
 			stream_config,
 			resampler: None,
-			resample_buffer: vec![Vec::new(), Vec::new()],
+			resample_buffer: [Vec::new(), Vec::new()],
 
 			status: PlaybackStatus::Paused,
 			volume: 0.45,
@@ -85,6 +85,7 @@ impl Process {
 					let cpal_sample_rate = self.stream_config.sample_rate.0;
 					let stream_sample_rate = stream.info().sample_rate.unwrap();
 
+					self.buffer.clear();
 					if cpal_sample_rate != stream_sample_rate {
 						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
 
@@ -101,15 +102,16 @@ impl Process {
 						for channel in &mut self.resample_buffer {
 							channel.resize(frames, 0.0);
 						}
+						self.buffer.reserve(frames * 2);
 
 						self.resampler = Some(resampler);
 					} else {
+						self.buffer.reserve(stream.block_size() * 2);
 						self.resampler = None;
 					};
 
 					self.status = status;
 					self.stream = Some(stream);
-					self.buffer.clear();
 				}
 				ToProcess::Status(status) => {
 					self.status = status;
@@ -156,9 +158,11 @@ impl Process {
 						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer, None)
 						.unwrap();
 
+					let ch1 = &self.resample_buffer[0];
+					let ch2 = &self.resample_buffer[1];
 					for i in 0..out_len {
-						self.buffer
-							.extend(self.resample_buffer.iter().map(|s| s[i]));
+						self.buffer.push_back(ch1[i]);
+						self.buffer.push_back(ch2[i]);
 					}
 				} else {
 					for i in 0..read_data.num_frames() {
