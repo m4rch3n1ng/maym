@@ -565,8 +565,8 @@ impl Queue {
 	}
 
 	/// if [`State::done()`], play next track
-	pub fn done(&mut self, player: &mut Player, state: &State) -> Result<(), QueueError> {
-		if state.done() {
+	pub fn done(&mut self, player: &mut Player) -> Result<(), QueueError> {
+		if player.done() {
 			self.next(player)?;
 		}
 
