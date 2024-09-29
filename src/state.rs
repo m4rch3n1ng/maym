@@ -127,17 +127,6 @@ impl State {
 		self.duration.as_deref().copied()
 	}
 
-	/// return `true` if track is done
-	///
-	/// returns `true` if
-	/// - isn't paused
-	/// - a track is playing
-	/// - the duration and elapsed don't exist
-	#[inline]
-	pub fn done(&self) -> bool {
-		!self.paused && self.track.is_some() && self.duration.is_none() && self.elapsed.is_none()
-	}
-
 	/// update self to reflect current application state
 	pub fn tick(&mut self, player: &mut Player, queue: &Queue, ui: &mut Ui) {
 		player.update();

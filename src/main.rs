@@ -99,7 +99,7 @@ impl Application {
 			if last.elapsed() >= self.tick {
 				self.state.tick(&mut self.player, &self.queue, &mut self.ui);
 				if !skip_done {
-					self.queue.done(&mut self.player, &self.state)?;
+					self.queue.done(&mut self.player)?;
 				} else {
 					skip_done = false;
 				}

@@ -4,6 +4,7 @@ use cpal::{
 	traits::{DeviceTrait, HostTrait, StreamTrait},
 	StreamConfig,
 };
+use creek::read::ReadError;
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
 use rtrb::{Consumer, Producer, RingBuffer};
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
@@ -36,6 +37,7 @@ enum ToProcess {
 
 enum FromProcess {
 	Playhead(Duration),
+	IsDone,
 }
 
 struct Process {
@@ -48,6 +50,7 @@ struct Process {
 	// status
 	status: PlaybackStatus,
 	volume: f32,
+	done: bool,
 
 	// comm
 	from_main_rx: Consumer<ToProcess>,
@@ -69,6 +72,7 @@ impl Process {
 
 			status: PlaybackStatus::Paused,
 			volume: 0.45,
+			done: false,
 
 			from_main_rx,
 			to_main_tx,
@@ -113,6 +117,7 @@ impl Process {
 					};
 
 					self.status = status;
+					self.done = false;
 					self.stream = Some(stream);
 				}
 				ToProcess::Status(status) => {
@@ -138,7 +143,7 @@ impl Process {
 		}
 
 		if let Some(stream) = &mut self.stream {
-			if !stream.is_ready().unwrap() {
+			if self.done || !stream.is_ready().unwrap() {
 				Self::silence(data);
 				return;
 			}
@@ -149,7 +154,16 @@ impl Process {
 			}
 
 			while self.buffer.len() < data.len() {
-				let read_data = stream.read(stream.block_size()).unwrap();
+				let read_data = match stream.read(stream.block_size()) {
+					Ok(read_data) => read_data,
+					Err(ReadError::EndOfFile) => {
+						self.done = true;
+						self.to_main_tx.push(FromProcess::IsDone).unwrap();
+						Self::silence(data);
+						return;
+					}
+					err @ Err(_) => err.unwrap(),
+				};
 
 				assert_eq!(read_data.num_channels(), 2, "mono audio not supported ):");
 				let ch1 = read_data.read_channel(0);
@@ -206,6 +220,7 @@ pub struct Player {
 	// state
 	muted: bool,
 	volume: u8,
+	done: bool,
 	status: PlaybackStatus,
 	elapsed: Option<Duration>,
 	duration: Option<Duration>,
@@ -249,6 +264,7 @@ impl Player {
 		let player = Player {
 			muted: false,
 			volume: 45,
+			done: false,
 
 			status: PlaybackStatus::Paused,
 			elapsed: None,
@@ -272,6 +288,9 @@ impl Player {
 			match msg {
 				FromProcess::Playhead(duration) => {
 					self.elapsed = Some(duration);
+				}
+				FromProcess::IsDone => {
+					self.done = true;
 				}
 			}
 		}
@@ -327,6 +346,7 @@ impl Player {
 		self.duration = Some(Duration::from_secs_f64(secs));
 
 		self.status = status;
+		self.done = false;
 
 		self.to_process_tx
 			.push(ToProcess::UseStream {
@@ -334,6 +354,10 @@ impl Player {
 				status,
 			})
 			.unwrap();
+	}
+
+	pub fn done(&self) -> bool {
+		self.duration.is_some() && self.done
 	}
 
 	pub fn seek(&mut self, position: Duration) {
