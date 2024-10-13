@@ -8,7 +8,7 @@ use creek::read::ReadError;
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
 use rtrb::{Consumer, Producer, RingBuffer};
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
-use std::{collections::VecDeque, fmt::Debug, time::Duration};
+use std::{borrow::Cow, collections::VecDeque, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PlaybackStatus {
@@ -154,7 +154,7 @@ impl Process {
 			}
 
 			while self.buffer.len() < data.len() {
-			    let block_size = stream.block_size();
+				let block_size = stream.block_size();
 				let read_data = match stream.read(stream.block_size()) {
 					Ok(read_data) => read_data,
 					Err(ReadError::EndOfFile) => {
@@ -167,10 +167,28 @@ impl Process {
 				};
 
 				assert_eq!(read_data.num_channels(), 2, "mono audio not supported ):");
-				let mut ch1 = Vec::from(read_data.read_channel(0));
-				ch1.resize(block_size, 0.0);
-				let mut ch2 = Vec::from(read_data.read_channel(1));
-				ch2.resize(block_size, 0.0);
+
+				let ch1 = read_data.read_channel(0);
+				let ch1 = if ch1.len() < block_size {
+					let mut chan = Vec::with_capacity(block_size);
+					chan.extend_from_slice(ch1);
+					chan.resize(block_size, 0.0);
+
+					Cow::Owned(chan)
+				} else {
+					Cow::Borrowed(ch1)
+				};
+
+				let ch2 = read_data.read_channel(1);
+				let ch2 = if ch2.len() < block_size {
+					let mut chan = Vec::with_capacity(block_size);
+					chan.extend_from_slice(ch2);
+					chan.resize(block_size, 0.0);
+
+					Cow::Owned(chan)
+				} else {
+					Cow::Borrowed(ch2)
+				};
 
 				if let Some(resampler) = &mut self.resampler {
 					let (_, out_len) = resampler
