@@ -154,6 +154,7 @@ impl Process {
 			}
 
 			while self.buffer.len() < data.len() {
+			    let block_size = stream.block_size();
 				let read_data = match stream.read(stream.block_size()) {
 					Ok(read_data) => read_data,
 					Err(ReadError::EndOfFile) => {
@@ -166,8 +167,10 @@ impl Process {
 				};
 
 				assert_eq!(read_data.num_channels(), 2, "mono audio not supported ):");
-				let ch1 = read_data.read_channel(0);
-				let ch2 = read_data.read_channel(1);
+				let mut ch1 = Vec::from(read_data.read_channel(0));
+				ch1.resize(block_size, 0.0);
+				let mut ch2 = Vec::from(read_data.read_channel(1));
+				ch2.resize(block_size, 0.0);
 
 				if let Some(resampler) = &mut self.resampler {
 					let (_, out_len) = resampler
