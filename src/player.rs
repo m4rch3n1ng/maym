@@ -365,6 +365,7 @@ impl Player {
 		let num_frames = read_stream.info().num_frames;
 		let secs = num_frames as f64 / sample_rate as f64;
 		self.duration = Some(Duration::from_secs_f64(secs));
+		self.elapsed = Some(start);
 
 		self.status = status;
 		self.done = false;
