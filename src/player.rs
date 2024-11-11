@@ -214,7 +214,7 @@ impl Process {
 			// apply volume
 			for sample in &mut *data {
 				// mpv uses `pow(volume, 3)`
-				*sample *= self.volume.powf(2.);
+				*sample *= self.volume.powf(3.);
 			}
 
 			let duration = Process::playhead(stream);
