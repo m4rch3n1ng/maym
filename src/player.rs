@@ -131,7 +131,8 @@ impl Process {
 
 			// apply volume
 			for sample in data.iter_mut() {
-				*sample *= self.volume;
+				// mpv uses `pow(volume, 3)`
+				*sample *= self.volume.powf(3.);
 			}
 
 			let _ = self
