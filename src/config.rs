@@ -242,7 +242,7 @@ impl List {
 					let list = List::with_parent(path, self.clone()).unwrap();
 					let child = Child::List(list);
 					Some(child)
-				} else if path.extension().map_or(false, |ext| ext == "mp3") {
+				} else if path.extension() == Some("mp3") {
 					let child = Child::Mp3(path);
 					Some(child)
 				} else {
@@ -390,7 +390,7 @@ impl<'de> Deserialize<'de> for ColorWrap {
 
 struct ColorVis;
 
-impl<'de> serde::de::Visitor<'de> for ColorVis {
+impl serde::de::Visitor<'_> for ColorVis {
 	type Value = ColorWrap;
 
 	fn expecting(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {

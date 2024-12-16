@@ -103,7 +103,7 @@ impl Track {
 		let recurse_tracks = dirs.into_iter().map(Track::directory).flatten_ok();
 		let tracks = files
 			.into_iter()
-			.filter(|path| path.extension().map_or(false, |ext| ext == "mp3"))
+			.filter(|path| path.extension() == Some("mp3"))
 			.map(Track::new);
 
 		recurse_tracks.chain(tracks).collect()
