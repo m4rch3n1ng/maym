@@ -5,7 +5,7 @@ use crate::{
 	queue::{Queue, QueueError},
 	state::State,
 };
-use ratatui::{layout::Rect, terminal::Frame};
+use ratatui::{layout::Rect, Frame};
 
 mod popup;
 pub mod utils;
@@ -40,7 +40,7 @@ impl Ui {
 	}
 
 	pub fn draw(&mut self, frame: &mut Frame, state: &State, queue: &Queue) {
-		let size = frame.size();
+		let size = frame.area();
 		let (window, seek) = window::layout(size);
 
 		window::main(frame, window, state);
