@@ -248,7 +248,7 @@ fn install() -> color_eyre::Result<()> {
 
 		let _ = execute!(stdout, cursor::Show);
 
-		hook(info)
+		hook(info);
 	}));
 
 	Ok(())

@@ -129,18 +129,17 @@ impl PopupTrait for Tags {
 
 			let title = track
 				.title()
-				.map_or(utils::widgets::line("none", dimmed), Line::from);
+				.map_or_else(|| utils::widgets::line("none", dimmed), Line::from);
 			let artist = track
 				.artist()
-				.map_or(utils::widgets::line("none", dimmed), Line::from);
+				.map_or_else(|| utils::widgets::line("none", dimmed), Line::from);
 			let album = track
 				.album()
-				.map_or(utils::widgets::line("none", dimmed), Line::from);
-			let num = track
-				.track()
-				.map_or(utils::widgets::line("none", dimmed), |num| {
-					Line::from(num.to_string())
-				});
+				.map_or_else(|| utils::widgets::line("none", dimmed), Line::from);
+			let num = track.track().map_or_else(
+				|| utils::widgets::line("none", dimmed),
+				|num| Line::from(num.to_string()),
+			);
 			let path = Line::from(track.path.as_str());
 
 			vec![
@@ -205,14 +204,14 @@ impl Tracks {
 		self.page = Some(page);
 
 		let path = queue.path();
-		let line = path.map_or(
-			utils::widgets::line("nothing playing", Style::default().bold().dim().italic()),
+		let line = path.map_or_else(
+			|| utils::widgets::line("nothing playing", Style::default().bold().dim().italic()),
 			|path| utils::widgets::line(format!(">> {:?}", path), Style::default().bold()),
 		);
 		let title = Paragraph::new(line).block(Block::default());
 		frame.render_widget(title, title_area);
 
-		let items = self.items(queue);
+		let items = Tracks::items(queue);
 		let list = ListWidget::new(items)
 			.block(Block::default())
 			.style(Style::default().dim())
@@ -221,12 +220,11 @@ impl Tracks {
 		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
-	fn items<'q>(&self, queue: &'q Queue) -> Vec<ListItem<'q>> {
+	fn items(queue: &Queue) -> Vec<ListItem<'_>> {
 		queue
 			.tracks()
 			.iter()
 			.map(|track| track.line(queue))
-			.map(Line::from)
 			.map(ListItem::new)
 			.collect()
 	}
@@ -376,8 +374,8 @@ impl Lists {
 		}
 		self.page = Some(page);
 
-		let line = self.list.as_ref().map_or(
-			utils::widgets::line("<< \"/\"", Style::default().bold()),
+		let line = self.list.as_ref().map_or_else(
+			|| utils::widgets::line("<< \"/\"", Style::default().bold()),
 			|list| utils::widgets::line(format!("<< {:?}", list.path), Style::default().bold()),
 		);
 		let paragraph = Paragraph::new(line);

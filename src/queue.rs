@@ -113,7 +113,7 @@ impl Track {
 	///
 	/// used for [`Player::replace`], as mpv can only handle utf8 strings
 	pub fn to_quoted_string(&self) -> String {
-		let mut quoted = self.path.as_str().replace("\"", "\\\"");
+		let mut quoted = self.path.as_str().replace('\"', "\\\"");
 		quoted.insert(0, '"');
 		quoted.push('"');
 
