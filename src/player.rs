@@ -8,7 +8,7 @@ use creek::read::ReadError;
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
 use rtrb::{Consumer, Producer, RingBuffer};
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
-use std::{borrow::Cow, collections::VecDeque, fmt::Debug, time::Duration};
+use std::{collections::VecDeque, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PlaybackStatus {
@@ -45,7 +45,8 @@ struct Process {
 	buffer: VecDeque<f32>,
 	stream_config: StreamConfig,
 	resampler: Option<FastFixedIn<f32>>,
-	resample_buffer: [Vec<f32>; 2],
+	resample_buffer_in: [Vec<f32>; 2],
+	resample_buffer_out: [Vec<f32>; 2],
 
 	// status
 	status: PlaybackStatus,
@@ -68,7 +69,8 @@ impl Process {
 			buffer: VecDeque::new(),
 			stream_config,
 			resampler: None,
-			resample_buffer: [Vec::new(), Vec::new()],
+			resample_buffer_in: [Vec::new(), Vec::new()],
+			resample_buffer_out: [Vec::new(), Vec::new()],
 
 			status: PlaybackStatus::Paused,
 			volume: 0.45,
@@ -91,20 +93,24 @@ impl Process {
 
 					if cpal_sample_rate != stream_sample_rate {
 						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
+						let block_size = stream.block_size();
 
 						let resampler = FastFixedIn::<f32>::new(
 							ratio,
 							1.0,
 							PolynomialDegree::Linear,
-							stream.block_size(),
+							block_size,
 							2,
 						)
 						.unwrap();
 
 						let frames = resampler.output_frames_max();
 
-						self.resample_buffer[0].resize(frames, 0.0);
-						self.resample_buffer[1].resize(frames, 0.0);
+						self.resample_buffer_in[0].resize(block_size, 0.0);
+						self.resample_buffer_in[1].resize(block_size, 0.0);
+
+						self.resample_buffer_out[0].resize(frames, 0.0);
+						self.resample_buffer_out[1].resize(frames, 0.0);
 
 						self.buffer.clear();
 						self.buffer.reserve(frames * 2);
@@ -166,34 +172,38 @@ impl Process {
 				};
 
 				let ch1 = read_data.read_channel(0);
-				let ch1 = if ch1.len() < block_size {
-					let mut chan = Vec::with_capacity(block_size);
-					chan.extend_from_slice(ch1);
-					chan.resize(block_size, 0.0);
-
-					Cow::Owned(chan)
-				} else {
-					Cow::Borrowed(ch1)
-				};
-
 				let ch2 = read_data.read_channel(if read_data.num_channels() == 1 { 0 } else { 1 });
-				let ch2 = if ch2.len() < block_size {
-					let mut chan = Vec::with_capacity(block_size);
-					chan.extend_from_slice(ch2);
-					chan.resize(block_size, 0.0);
-
-					Cow::Owned(chan)
-				} else {
-					Cow::Borrowed(ch2)
-				};
 
 				if let Some(resampler) = &mut self.resampler {
+					let ([in_ch1], [in_ch2]) = self.resample_buffer_in.split_at_mut(1) else {
+						unreachable!();
+					};
+
+					let ch1 = if ch1.len() < block_size {
+						in_ch1.clear();
+						in_ch1.extend_from_slice(ch1);
+						in_ch1.resize(block_size, 0.0);
+						in_ch1
+					} else {
+						ch1
+					};
+
+					let ch2 = if ch2.len() < block_size {
+						in_ch2.clear();
+						in_ch2.extend_from_slice(ch2);
+						in_ch2.resize(block_size, 0.0);
+						in_ch2
+					} else {
+						ch2
+					};
+
 					let (_, out_len) = resampler
-						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer, None)
+						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer_out, None)
 						.unwrap();
 
-					let ch1 = &self.resample_buffer[0];
-					let ch2 = &self.resample_buffer[1];
+					let ch1 = &self.resample_buffer_out[0];
+					let ch2 = &self.resample_buffer_out[1];
+
 					for i in 0..out_len {
 						self.buffer.push_back(ch1[i]);
 						self.buffer.push_back(ch2[i]);
