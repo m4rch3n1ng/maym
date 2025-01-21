@@ -7,19 +7,19 @@ use crate::{
 	ui::Ui,
 };
 use camino::Utf8PathBuf;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::{self, File},
 	io::{BufWriter, Write},
 	ops::{Deref, DerefMut},
 	path::PathBuf,
+	sync::LazyLock,
 	time::Duration,
 };
 use thiserror::Error;
 
 /// path for state file
-static STATE_PATH: Lazy<PathBuf> = Lazy::new(|| CONFIG_DIR.join("status.json"));
+static STATE_PATH: LazyLock<PathBuf> = LazyLock::new(|| CONFIG_DIR.join("status.json"));
 
 /// state error
 #[derive(Debug, Error)]

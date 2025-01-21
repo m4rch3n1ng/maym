@@ -8,7 +8,6 @@ use crate::{
 	ui::utils as ui,
 };
 use camino::{Utf8Path, Utf8PathBuf};
-use once_cell::sync::Lazy;
 use ratatui::{
 	style::{Color, Style, Stylize},
 	text::Line,
@@ -21,15 +20,16 @@ use std::{
 	ops::{Deref, DerefMut},
 	path::PathBuf,
 	str::FromStr,
+	sync::LazyLock,
 	time::Duration,
 };
 use thiserror::Error;
 use unicase::UniCase;
 
 /// path for config file
-static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| CONFIG_DIR.join("config.json"));
+static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| CONFIG_DIR.join("config.json"));
 /// path to config directory
-pub static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(config_dir);
+pub static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(config_dir);
 
 /// path to config directory
 ///

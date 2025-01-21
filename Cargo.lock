@@ -431,7 +431,6 @@ dependencies = [
  "id3",
  "itertools",
  "libmpv",
- "once_cell",
  "rand",
  "ratatui",
  "serde",
