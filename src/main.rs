@@ -223,10 +223,9 @@ impl Drop for Application {
 		let _ = execute!(
 			stdout,
 			terminal::LeaveAlternateScreen,
-			event::DisableMouseCapture
+			event::DisableMouseCapture,
+			cursor::Show,
 		);
-
-		let _ = execute!(stdout, cursor::Show);
 	}
 }
 
@@ -241,10 +240,9 @@ fn install() -> color_eyre::Result<()> {
 		let _ = execute!(
 			stdout,
 			terminal::LeaveAlternateScreen,
-			event::DisableMouseCapture
+			event::DisableMouseCapture,
+			cursor::Show,
 		);
-
-		let _ = execute!(stdout, cursor::Show);
 
 		hook(info);
 
