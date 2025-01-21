@@ -101,10 +101,10 @@ impl Process {
 						)
 						.unwrap();
 
-						let frames = resampler.output_frames_next();
-						for channel in &mut self.resample_buffer {
-							channel.resize(frames, 0.0);
-						}
+						let frames = resampler.output_frames_max();
+
+						self.resample_buffer[0].resize(frames, 0.0);
+						self.resample_buffer[1].resize(frames, 0.0);
 
 						self.buffer.clear();
 						self.buffer.reserve(frames * 2);
@@ -135,7 +135,6 @@ impl Process {
 
 						self.buffer.clear();
 
-						let duration = Process::playhead(stream);
 						let _ = self.to_main_tx.push(FromProcess::Playhead(duration));
 					}
 				}
@@ -148,7 +147,7 @@ impl Process {
 				return;
 			}
 
-			if let PlaybackStatus::Paused = self.status {
+			if self.status == PlaybackStatus::Paused {
 				Self::silence(data);
 				return;
 			}
@@ -159,14 +158,12 @@ impl Process {
 					Ok(read_data) => read_data,
 					Err(ReadError::EndOfFile) => {
 						self.done = true;
-						self.to_main_tx.push(FromProcess::IsDone).unwrap();
+						let _ = self.to_main_tx.push(FromProcess::IsDone);
 						Self::silence(data);
 						return;
 					}
 					err @ Err(_) => err.unwrap(),
 				};
-
-				assert_eq!(read_data.num_channels(), 2, "mono audio not supported ):");
 
 				let ch1 = read_data.read_channel(0);
 				let ch1 = if ch1.len() < block_size {
@@ -179,7 +176,7 @@ impl Process {
 					Cow::Borrowed(ch1)
 				};
 
-				let ch2 = read_data.read_channel(1);
+				let ch2 = read_data.read_channel(if read_data.num_channels() == 1 { 0 } else { 1 });
 				let ch2 = if ch2.len() < block_size {
 					let mut chan = Vec::with_capacity(block_size);
 					chan.extend_from_slice(ch2);
@@ -216,7 +213,7 @@ impl Process {
 			// apply volume
 			for sample in &mut *data {
 				// mpv uses `pow(volume, 3)`
-				*sample *= self.volume.powf(3.);
+				*sample *= self.volume.powi(3);
 			}
 
 			let duration = Process::playhead(stream);
