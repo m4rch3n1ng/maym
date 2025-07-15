@@ -175,9 +175,7 @@ impl Process {
 				let ch2 = read_data.read_channel(if read_data.num_channels() == 1 { 0 } else { 1 });
 
 				if let Some(resampler) = &mut self.resampler {
-					let ([in_ch1], [in_ch2]) = self.resample_buffer_in.split_at_mut(1) else {
-						unreachable!();
-					};
+					let [in_ch1, in_ch2] = &mut self.resample_buffer_in;
 
 					let ch1 = if ch1.len() < block_size {
 						in_ch1.clear();
@@ -201,8 +199,7 @@ impl Process {
 						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer_out, None)
 						.unwrap();
 
-					let ch1 = &self.resample_buffer_out[0];
-					let ch2 = &self.resample_buffer_out[1];
+					let [ch1, ch2] = &self.resample_buffer_out;
 
 					for i in 0..out_len {
 						self.buffer.push_back(ch1[i]);
