@@ -3,7 +3,6 @@
 use crate::{player::Player, state::State, ui::utils as ui};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
-use rand::{rngs::ThreadRng, seq::IndexedRandom};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
@@ -261,8 +260,6 @@ pub struct Queue {
 	current: Option<Track>,
 	/// do shuffle queue
 	shuffle: bool,
-	/// rng struct for shuffling
-	rng: ThreadRng,
 }
 
 impl Queue {
@@ -286,8 +283,6 @@ impl Queue {
 		let last = VecDeque::new();
 		let next = vec![];
 
-		let rng = rand::rng();
-
 		let queue = Queue {
 			path,
 			tracks,
@@ -295,7 +290,6 @@ impl Queue {
 			next,
 			current,
 			shuffle,
-			rng,
 		};
 		Ok(queue)
 	}
@@ -458,9 +452,9 @@ impl Queue {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if [`Queue::tracks`] is empty
-	fn next_track_sequential(&self) -> Result<Track, QueueError> {
+	fn next_track_sequential(&self) -> Option<Track> {
 		if self.tracks.is_empty() {
-			return Err(QueueError::NoTracks);
+			return None;
 		}
 
 		let len = self.tracks().len();
@@ -473,7 +467,7 @@ impl Queue {
 			}
 		});
 
-		self.track_by_idx(idx)
+		Some(self.tracks[idx].clone())
 	}
 
 	/// get next track randomly
@@ -481,25 +475,25 @@ impl Queue {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if [`Queue::tracks`] is empty
-	fn next_track_shuffle(&mut self) -> Result<Track, QueueError> {
-		loop {
-			let track = self
-				.tracks
-				.choose(&mut self.rng)
-				.ok_or(QueueError::NoTracks)?;
+	fn next_track_shuffle(&mut self) -> Option<Track> {
+		if self.tracks.is_empty() {
+			return None;
+		} else if self.tracks.len() == 1 {
+			return Some(self.tracks[0].clone());
+		}
 
-			if self.current.as_ref().is_none_or(|current| current != track)
-				|| self.tracks.len() <= 1
-			{
-				break Ok(track.clone());
+		loop {
+			let track = &self.tracks[rand::random_range(..self.tracks.len())];
+			if self.track().is_none_or(|current| current != track) {
+				break Some(track.clone());
 			}
 		}
 	}
 
 	/// get next track
-	fn next_track(&mut self) -> Result<Track, QueueError> {
+	fn next_track(&mut self) -> Option<Track> {
 		if let Some(track) = self.next.pop() {
-			Ok(track)
+			Some(track)
 		} else if self.shuffle {
 			self.next_track_shuffle()
 		} else {
@@ -529,11 +523,10 @@ impl Queue {
 	}
 
 	/// play next track
-	pub fn next(&mut self, player: &mut Player) -> Result<(), QueueError> {
-		let track = self.next_track()?;
-		self.replace(track, player);
-
-		Ok(())
+	pub fn next(&mut self, player: &mut Player) {
+		if let Some(track) = self.next_track() {
+			self.replace(track, player);
+		};
 	}
 
 	/// restart current track
@@ -562,7 +555,7 @@ impl Queue {
 			let position = elapsed.saturating_add(amt);
 
 			if position >= duration {
-				let _ = self.next(player);
+				self.next(player);
 			} else {
 				player.seek(position);
 			}
@@ -570,12 +563,10 @@ impl Queue {
 	}
 
 	/// if [`State::done()`], play next track
-	pub fn done(&mut self, player: &mut Player) -> Result<(), QueueError> {
+	pub fn done(&mut self, player: &mut Player) {
 		if player.done() {
-			self.next(player)?;
+			self.next(player);
 		}
-
-		Ok(())
 	}
 }
 
@@ -622,7 +613,6 @@ mod test {
 			next: vec![],
 			current: None,
 			shuffle: false,
-			rng: rand::rng(),
 		};
 		Ok(queue)
 	}
@@ -637,19 +627,19 @@ mod test {
 		let mut player = Player::new()?;
 		let mut queue = queue("mock/list 01")?;
 
-		queue.next(&mut player)?;
+		queue.next(&mut player);
 		assert_eq!(queue.track(), Some(&t0));
 
-		queue.next(&mut player)?;
+		queue.next(&mut player);
 		assert_eq!(queue.track(), Some(&t1));
 
-		queue.next(&mut player)?;
+		queue.next(&mut player);
 		assert_eq!(queue.track(), Some(&t2));
 
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
+		queue.next(&mut player);
+		queue.next(&mut player);
+		queue.next(&mut player);
+		queue.next(&mut player);
 
 		assert_eq!(queue.track(), Some(&t0));
 
@@ -671,15 +661,15 @@ mod test {
 		queue.last(&mut player);
 		assert_eq!(queue.track(), None);
 
-		queue.next(&mut player)?;
+		queue.next(&mut player);
 		assert!(queue.last.is_empty());
 
 		queue.last(&mut player);
 		assert_eq!(queue.track(), Some(&t5));
 
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
+		queue.next(&mut player);
+		queue.next(&mut player);
+		queue.next(&mut player);
 
 		assert_eq!(queue.track(), Some(&t2));
 
@@ -697,16 +687,16 @@ mod test {
 		queue.shuffle();
 		assert!(queue.is_shuffle());
 
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
+		queue.next(&mut player);
+		queue.next(&mut player);
+		queue.next(&mut player);
 
 		let tt = queue.current.clone();
 
-		queue.next(&mut player)?;
+		queue.next(&mut player);
 		queue.last(&mut player);
 		queue.last(&mut player);
-		queue.next(&mut player)?;
+		queue.next(&mut player);
 
 		assert_eq!(queue.current, tt);
 		assert_eq!(queue.next.len(), 1);
@@ -728,9 +718,9 @@ mod test {
 		let mut player = Player::new()?;
 		let mut queue = queue("mock/list 01")?;
 
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
+		queue.next(&mut player);
+		queue.next(&mut player);
+		queue.next(&mut player);
 		queue.last(&mut player);
 
 		queue.select_idx(2, &mut player)?;
@@ -753,9 +743,9 @@ mod test {
 		let mut player = Player::new()?;
 		let mut queue = queue("mock/list 01")?;
 
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
-		queue.next(&mut player)?;
+		queue.next(&mut player);
+		queue.next(&mut player);
+		queue.next(&mut player);
 		queue.last(&mut player);
 
 		queue.select_path("mock/list 01/sub 01/track 04.mp3".into(), &mut player)?;

@@ -99,7 +99,7 @@ impl Application {
 			if last.elapsed() >= self.tick {
 				self.state.tick(&mut self.player, &self.queue, &mut self.ui);
 				if !skip_done {
-					self.queue.done(&mut self.player)?;
+					self.queue.done(&mut self.player);
 				} else {
 					skip_done = false;
 				}
@@ -135,7 +135,7 @@ impl Application {
 			(KeyCode::Down, KeyModifiers::SHIFT) => self.player.d_vol(vol),
 			// queue
 			(KeyCode::Right, KeyModifiers::SHIFT) => {
-				let _ = self.queue.next(&mut self.player);
+				self.queue.next(&mut self.player);
 				*skip_done = true;
 			}
 			(KeyCode::Left, KeyModifiers::SHIFT) => {

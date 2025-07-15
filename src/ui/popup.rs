@@ -552,12 +552,12 @@ impl Lists {
 		match curr {
 			ListType::List(list) => {
 				queue.queue(&list.path)?;
-				let _ = queue.next(player);
+				queue.next(player);
 			}
 			ListType::Child(child, parent) => match child {
 				Child::List(list) => {
 					queue.queue(&list.path)?;
-					let _ = queue.next(player);
+					queue.next(player);
 				}
 				Child::Mp3(track) => {
 					queue.queue(&parent.path)?;
