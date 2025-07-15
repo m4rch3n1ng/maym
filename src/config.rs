@@ -91,13 +91,13 @@ impl Child {
 	/// the name is just the `file_name`
 	/// and a trailing slash for directories
 	fn name(&self) -> Cow<'_, str> {
-		match *self {
-			Child::List(ref list) => {
+		match self {
+			Child::List(list) => {
 				let path = list.path.file_name().unwrap_or_else(|| list.path.as_str());
 				let path = format!("{path}/");
 				Cow::Owned(path)
 			}
-			Child::Mp3(ref path) => {
+			Child::Mp3(path) => {
 				let path = path.file_name().unwrap_or_else(|| path.as_str());
 				Cow::Borrowed(path)
 			}
@@ -153,7 +153,7 @@ impl Child {
 impl PartialEq<List> for Child {
 	fn eq(&self, other: &List) -> bool {
 		match self {
-			Child::List(ref list) => list.eq(other),
+			Child::List(list) => list.eq(other),
 			Child::Mp3(_) => false,
 		}
 	}

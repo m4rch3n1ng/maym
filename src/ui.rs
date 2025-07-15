@@ -5,7 +5,7 @@ use crate::{
 	queue::{Queue, QueueError},
 	state::State,
 };
-use ratatui::{layout::Rect, Frame};
+use ratatui::{Frame, layout::Rect};
 
 mod popup;
 pub mod utils;
@@ -69,16 +69,16 @@ impl Ui {
 		self.tags.reset();
 		self.lyrics.reset();
 
-		if !matches!(self.popup, Some(Popups::Tracks)) {
-			if let Some(idx) = queue.idx() {
-				self.tracks.select(idx);
-			}
+		if !matches!(self.popup, Some(Popups::Tracks))
+			&& let Some(idx) = queue.idx()
+		{
+			self.tracks.select(idx);
 		}
 
-		if !matches!(self.popup, Some(Popups::Lists)) {
-			if let Some(track) = queue.track() {
-				self.lists.select(track);
-			}
+		if !matches!(self.popup, Some(Popups::Lists))
+			&& let Some(track) = queue.track()
+		{
+			self.lists.select(track);
 		}
 	}
 

@@ -6,11 +6,11 @@ use crate::{
 	state::State,
 };
 use ratatui::{
+	Frame,
 	layout::Rect,
 	style::{Modifier, Style, Stylize},
 	text::Line,
 	widgets::{Block, Clear, List as ListWidget, ListItem, ListState, Paragraph},
-	Frame,
 };
 
 #[derive(Debug)]
@@ -331,7 +331,7 @@ impl Lists {
 		};
 
 		let idx = if let Some(track) = queue.track() {
-			if let Some(ref list) = list {
+			if let Some(list) = &list {
 				list.children()
 					.iter()
 					.enumerate()
@@ -355,7 +355,7 @@ impl Lists {
 
 	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
 		let children = self.list.as_ref().map(|list| list.children());
-		let items = if let Some(ref children) = children {
+		let items = if let Some(children) = &children {
 			lists_list(children, queue)
 		} else {
 			root_list(&self.lists, queue)
@@ -390,7 +390,7 @@ impl Lists {
 	}
 
 	fn len(&self) -> usize {
-		if let Some(ref list) = self.list {
+		if let Some(list) = &self.list {
 			list.children().len()
 		} else {
 			self.lists.len()
@@ -403,7 +403,7 @@ impl Lists {
 	}
 
 	pub fn select(&mut self, track: &Track) {
-		if let Some(ref list) = self.list {
+		if let Some(list) = &self.list {
 			let children = list.children();
 			let idx = children.iter().position(|child| child == track);
 			let idx = idx.unwrap_or(0);
@@ -469,7 +469,7 @@ impl Lists {
 	}
 
 	fn curr(&self) -> ListType<'_> {
-		if let Some(ref list) = self.list {
+		if let Some(list) = &self.list {
 			let children = list.children();
 			let idx = self.state.selected().expect("state should always be Some");
 
@@ -507,7 +507,7 @@ impl Lists {
 	}
 
 	pub fn left(&mut self) {
-		if let Some(ref mut list) = self.list {
+		if let Some(list) = &mut self.list {
 			// warn: list is now invalid as the parent is now `None`
 			if let Some(parent) = list.parent() {
 				let idx = parent.children().iter().position(|child| child == list);

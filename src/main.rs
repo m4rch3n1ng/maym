@@ -12,8 +12,8 @@ use crossterm::{
 	execute, terminal,
 };
 use ratatui::{
-	backend::{Backend, CrosstermBackend},
 	Terminal,
+	backend::{Backend, CrosstermBackend},
 };
 use std::{
 	io,
@@ -124,7 +124,7 @@ impl Application {
 		match (key.code, key.modifiers) {
 			// global
 			(KeyCode::Char('q' | 'Q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-				return Err(MusicError::Quit)
+				return Err(MusicError::Quit);
 			}
 			// player
 			(KeyCode::Char(' '), KeyModifiers::ALT) | (KeyCode::Char('k'), KeyModifiers::NONE) => {

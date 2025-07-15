@@ -1,8 +1,8 @@
 use crate::queue::{Queue, Track};
 use crate::state::State;
 use cpal::{
-	traits::{DeviceTrait, HostTrait, StreamTrait},
 	StreamConfig,
+	traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use creek::read::ReadError;
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};

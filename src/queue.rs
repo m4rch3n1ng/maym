@@ -529,14 +529,14 @@ impl Queue {
 
 		// only replace and add to last, if it isn't already playing
 		// (i.e. it hasn't yet been added to last)
-		if self.track() != Some(&track) {
-			if let Some(current) = self.current.replace(track) {
-				self.last.push_back(current);
+		if self.track() != Some(&track)
+			&& let Some(current) = self.current.replace(track)
+		{
+			self.last.push_back(current);
 
-				// todo this can probably be like a 1000 times higher
-				if self.last.len() > 25 {
-					self.last.pop_front();
-				}
+			// todo this can probably be like a 1000 times higher
+			if self.last.len() > 25 {
+				self.last.pop_front();
 			}
 		}
 	}
@@ -559,25 +559,25 @@ impl Queue {
 
 	/// seek backwards in current track
 	pub fn seek_d(&self, player: &mut Player, state: &State, amt: Duration) {
-		if self.current.is_some() {
-			if let Some(elapsed) = state.elapsed() {
-				let position = elapsed.saturating_sub(amt);
-				player.seek(position);
-			}
+		if self.current.is_some()
+			&& let Some(elapsed) = state.elapsed()
+		{
+			let position = elapsed.saturating_sub(amt);
+			player.seek(position);
 		}
 	}
 
 	/// seek forward in current track
 	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
-		if self.current.is_some() {
-			if let Some((elapsed, duration)) = state.elapsed_duration() {
-				let position = elapsed.saturating_add(amt);
+		if self.current.is_some()
+			&& let Some((elapsed, duration)) = state.elapsed_duration()
+		{
+			let position = elapsed.saturating_add(amt);
 
-				if position >= duration {
-					let _ = self.next(player);
-				} else {
-					player.seek(position);
-				}
+			if position >= duration {
+				let _ = self.next(player);
+			} else {
+				player.seek(position);
 			}
 		}
 	}
