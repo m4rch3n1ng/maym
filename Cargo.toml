@@ -11,7 +11,6 @@ creek = { version = "1.2.2", default-features = false, features = ["decode", "de
 crossterm = "0.28.1"
 dirs = "6.0.0"
 id3 = { version = "1.16.3", default-features = false }
-itertools = "0.14.0"
 rand = "0.9.1"
 ratatui = "0.29.0"
 rtrb = "0.3.2"
@@ -20,6 +19,7 @@ serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = "1.0.140"
 thiserror = "2.0.12"
 unicase = "2.8.1"
+walkdir = "2.5.0"
 
 [profile.dev]
 opt-level = 1

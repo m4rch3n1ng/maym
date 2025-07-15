@@ -3,7 +3,6 @@
 use crate::{player::Player, state::State, ui::utils as ui};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
-use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -11,12 +10,12 @@ use std::{
 	cmp::Ordering,
 	collections::VecDeque,
 	fmt::{Debug, Display},
-	fs,
 	sync::Arc,
 	time::Duration,
 };
 use thiserror::Error;
 use unicase::UniCase;
+use walkdir::WalkDir;
 
 /// queue error
 #[derive(Debug, Error)]
@@ -102,23 +101,17 @@ impl Track {
 			return Err(QueueError::NotADirectory(path.to_owned()));
 		}
 
-		let files = fs::read_dir(path)?;
-		let (dirs, files): (Vec<_>, Vec<_>) = files
+		std::fs::read_dir(path)?;
+		let mut tracks = WalkDir::new(path)
 			.into_iter()
-			.flatten()
-			.map(|entry| entry.path())
-			.flat_map(Utf8PathBuf::try_from)
-			.partition(|path| path.is_dir());
-
-		let recurse_tracks = dirs.into_iter().map(Track::directory).flatten_ok();
-		let tracks = files
-			.into_iter()
+			.filter_map(Result::ok)
+			.filter(|entry| entry.file_type().is_file())
+			.map(|entry| entry.into_path())
+			.filter_map(|x| Utf8PathBuf::try_from(x).ok())
 			.filter(|path| path.extension() == Some("mp3"))
-			.map(Track::new);
+			.map(|path| Track::new(path).expect("should exist and not be a directory"))
+			.collect::<Vec<_>>();
 
-		let mut tracks = recurse_tracks
-			.chain(tracks)
-			.collect::<Result<Vec<_>, _>>()?;
 		tracks.sort();
 		Ok(tracks)
 	}
