@@ -274,7 +274,7 @@ impl Queue {
 		let last = VecDeque::new();
 		let next = vec![];
 
-		let rng = rand::thread_rng();
+		let rng = rand::rng();
 
 		let queue = Queue {
 			path,
@@ -620,7 +620,7 @@ mod test {
 			next: vec![],
 			current: None,
 			shuffle: false,
-			rng: rand::thread_rng(),
+			rng: rand::rng(),
 		};
 		Ok(queue)
 	}
