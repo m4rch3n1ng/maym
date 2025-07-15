@@ -3,7 +3,7 @@
 use crate::{player::Player, state::State, ui::utils as ui};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
-use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use rand::{rngs::ThreadRng, seq::IndexedRandom};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
@@ -343,7 +343,7 @@ impl Queue {
 
 	/// internal implementation for [`Queue::select_idx`]
 	#[inline]
-	fn track_by_idx(&mut self, idx: usize) -> Result<Track, QueueError> {
+	fn track_by_idx(&self, idx: usize) -> Result<Track, QueueError> {
 		let track = self.tracks.get(idx).ok_or(QueueError::OutOfBounds(idx))?;
 		Ok(track.clone())
 	}
@@ -409,7 +409,7 @@ impl Queue {
 	///
 	/// returns [`None`] on an empty track list,
 	/// or if no track is currently playing
-	fn last_track_sequential(&mut self) -> Option<Track> {
+	fn last_track_sequential(&self) -> Option<Track> {
 		if self.tracks.is_empty() {
 			return None;
 		}
@@ -458,7 +458,7 @@ impl Queue {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if [`Queue::tracks`] is empty
-	fn next_track_sequential(&mut self) -> Result<Track, QueueError> {
+	fn next_track_sequential(&self) -> Result<Track, QueueError> {
 		if self.tracks.is_empty() {
 			return Err(QueueError::NoTracks);
 		}
@@ -482,23 +482,17 @@ impl Queue {
 	///
 	/// returns [`QueueError`] if [`Queue::tracks`] is empty
 	fn next_track_shuffle(&mut self) -> Result<Track, QueueError> {
-		if let Some(current) = self.current.as_ref() {
-			// try to choose a different track if one is already playing
-			// fall back when the playlist length is 1
+		loop {
 			let track = self
 				.tracks
-				.iter()
-				.filter(|&track| track != current)
 				.choose(&mut self.rng)
-				.cloned()
-				.unwrap_or_else(|| current.clone());
-			Ok(track)
-		} else {
-			self.tracks
-				.iter()
-				.choose(&mut self.rng)
-				.cloned()
-				.ok_or(QueueError::NoTracks)
+				.ok_or(QueueError::NoTracks)?;
+
+			if self.current.as_ref().is_none_or(|current| current != track)
+				|| self.tracks.len() <= 1
+			{
+				break Ok(track.clone());
+			}
 		}
 	}
 
