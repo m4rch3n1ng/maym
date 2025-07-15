@@ -354,7 +354,7 @@ impl Player {
 		let opts = ReadStreamOptions::default();
 
 		let mut read_stream =
-			ReadDiskStream::<SymphoniaDecoder>::new(&track.path, 0, opts).unwrap();
+			ReadDiskStream::<SymphoniaDecoder>::new(track.path(), 0, opts).unwrap();
 
 		// seek to the specified position in the track
 		let sample_rate = read_stream.info().sample_rate.unwrap();

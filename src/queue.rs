@@ -7,7 +7,14 @@ use itertools::Itertools;
 use rand::{rngs::ThreadRng, seq::IteratorRandom};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{cmp::Ordering, collections::VecDeque, fmt::Debug, fmt::Display, fs, time::Duration};
+use std::{
+	cmp::Ordering,
+	collections::VecDeque,
+	fmt::{Debug, Display},
+	fs,
+	sync::Arc,
+	time::Duration,
+};
 use thiserror::Error;
 use unicase::UniCase;
 
@@ -36,7 +43,9 @@ pub enum QueueError {
 
 /// struct representing a mp3 file
 #[derive(Clone)]
-pub struct Track {
+pub struct Track(Arc<TrackInner>);
+
+pub struct TrackInner {
 	/// path to file
 	pub path: Utf8PathBuf,
 	/// id3 tags
@@ -48,7 +57,7 @@ impl Serialize for Track {
 	where
 		S: serde::Serializer,
 	{
-		self.path.as_path().serialize(serializer)
+		self.0.path.as_path().serialize(serializer)
 	}
 }
 
@@ -66,7 +75,8 @@ impl Track {
 		}
 
 		let tag = Tag::read_from_path(&path).unwrap_or_default();
-		Ok(Track { path, tag })
+		let track = TrackInner { path, tag };
+		Ok(Track(Arc::new(track)))
 	}
 
 	/// deserialize into [`Option`] of [`Track`]
@@ -129,41 +139,46 @@ impl Track {
 		}
 	}
 
+	/// path to the mp3 file
+	pub fn path(&self) -> &Utf8Path {
+		&self.0.path
+	}
+
 	/// [id3 track tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#trck)
 	pub fn track(&self) -> Option<u32> {
-		self.tag.track()
+		self.0.tag.track()
 	}
 
 	/// reference to [id3 title tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#tit2)
 	pub fn title(&self) -> Option<&str> {
-		self.tag.title()
+		self.0.tag.title()
 	}
 
 	/// reference to [id3 artist tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#tpe1)
 	pub fn artist(&self) -> Option<&str> {
-		self.tag.artist()
+		self.0.tag.artist()
 	}
 
 	/// reference to [id3 album tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#talb)
 	pub fn album(&self) -> Option<&str> {
-		self.tag.album()
+		self.0.tag.album()
 	}
 
 	/// reference to [id3 lyrics tag](https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html#uslt)
 	pub fn lyrics(&self) -> Option<&str> {
-		self.tag.lyrics().next().map(|lyr| &*lyr.text)
+		self.0.tag.lyrics().next().map(|lyr| &*lyr.text)
 	}
 }
 
 impl Debug for Track {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let mut dbg = f.debug_struct("Track");
-		dbg.field("path", &self.path);
+		dbg.field("path", &self.0.path);
 
-		self.tag.track().map(|track| dbg.field("track", &track));
-		self.tag.title().map(|title| dbg.field("title", &title));
-		self.tag.artist().map(|artist| dbg.field("artist", &artist));
-		self.tag.album().map(|album| dbg.field("album", &album));
+		self.track().map(|track| dbg.field("track", &track));
+		self.title().map(|title| dbg.field("title", &title));
+		self.artist().map(|artist| dbg.field("artist", &artist));
+		self.album().map(|album| dbg.field("album", &album));
 
 		dbg.finish()
 	}
@@ -171,12 +186,12 @@ impl Debug for Track {
 
 impl Display for Track {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		if let Some(track) = self.tag.track() {
+		if let Some(track) = self.track() {
 			write!(f, "{track:#02} ")?;
 		}
 
-		let title = self.tag.title().unwrap_or("unknown title");
-		let artist = self.tag.artist().unwrap_or("unknown artist");
+		let title = self.title().unwrap_or("unknown title");
+		let artist = self.artist().unwrap_or("unknown artist");
 
 		write!(f, "{title} ~ {artist}")
 	}
@@ -186,39 +201,42 @@ impl Eq for Track {}
 
 impl PartialEq<Track> for Track {
 	fn eq(&self, other: &Track) -> bool {
-		self.path.eq(&other.path)
+		self.0.path.eq(&other.0.path)
+	}
+}
+
+impl PartialEq<Track> for Utf8PathBuf {
+	fn eq(&self, other: &Track) -> bool {
+		self.eq(&other.0.path)
 	}
 }
 
 impl PartialEq<Utf8PathBuf> for Track {
 	fn eq(&self, other: &Utf8PathBuf) -> bool {
-		self.path.eq(other)
+		self.0.path.eq(other)
 	}
 }
 
 impl PartialEq<Utf8Path> for Track {
 	fn eq(&self, other: &Utf8Path) -> bool {
-		self.path.eq(other)
+		self.0.path.eq(other)
 	}
 }
 
 impl Ord for Track {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		let tracks = self.tag.track().zip(other.tag.track());
+		let tracks = self.track().zip(other.track());
 		let titles = self
-			.tag
 			.title()
-			.zip(other.tag.title())
+			.zip(other.title())
 			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 		let artist = self
-			.tag
 			.artist()
-			.zip(other.tag.artist())
+			.zip(other.artist())
 			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 		let albums = self
-			.tag
 			.album()
-			.zip(other.tag.album())
+			.zip(other.album())
 			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 
 		tracks
@@ -265,10 +283,9 @@ impl Queue {
 			_ => (vec![], None),
 		};
 
-		let current = state.track.clone();
-		let current = current.and_then(|current| {
-			let find = tracks.iter().find(|&track| track == &current);
-			find.is_some().then_some(current)
+		let current = state.track.as_ref().and_then(|current| {
+			let find = tracks.iter().find(|&track| track == current);
+			find.cloned()
 		});
 
 		let shuffle = state.shuffle;
@@ -880,7 +897,8 @@ mod test {
 				$( tag.set_album($alb); )?
 
 				let path = "/dev/null".into();
-				let track = Track { path, tag };
+				let track = super::TrackInner { path, tag };
+				let track = Track(std::sync::Arc::new(track));
 
 				track
 			}

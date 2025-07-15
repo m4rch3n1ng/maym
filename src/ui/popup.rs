@@ -140,7 +140,7 @@ impl PopupTrait for Tags {
 				|| utils::widgets::line("none", dimmed),
 				|num| Line::from(num.to_string()),
 			);
-			let path = Line::from(track.path.as_str());
+			let path = Line::from(track.path().as_str());
 
 			vec![
 				utils::widgets::line("title", underline),

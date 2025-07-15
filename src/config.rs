@@ -152,7 +152,7 @@ impl Child {
 
 impl PartialEq<List> for Child {
 	fn eq(&self, other: &List) -> bool {
-		match *self {
+		match self {
 			Child::List(ref list) => list.eq(other),
 			Child::Mp3(_) => false,
 		}
@@ -161,9 +161,9 @@ impl PartialEq<List> for Child {
 
 impl PartialEq<Track> for Child {
 	fn eq(&self, other: &Track) -> bool {
-		match *self {
+		match self {
 			Child::List(_) => false,
-			Child::Mp3(ref path) => path.eq(&other.path),
+			Child::Mp3(path) => path == other,
 		}
 	}
 }
