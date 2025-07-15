@@ -313,6 +313,7 @@ impl Queue {
 	/// set shuffle
 	///
 	/// also clears [`Queue::next`] and [`Queue::last`]
+	#[cfg(feature = "mpris")]
 	pub fn set_shuffle(&mut self, shuffle: bool) {
 		if self.shuffle != shuffle {
 			self.next.clear();

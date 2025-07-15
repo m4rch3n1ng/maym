@@ -392,6 +392,7 @@ impl Player {
 		let _ = self.to_process_tx.push(ToProcess::Status(status));
 	}
 
+	#[cfg(feature = "mpris")]
 	pub fn pause(&mut self, status: PlaybackStatus) {
 		self.status = status;
 		let _ = self.to_process_tx.push(ToProcess::Status(status));
@@ -443,6 +444,7 @@ impl Player {
 			.push(ToProcess::Volume(vol as f32 / 100.));
 	}
 
+	#[cfg(feature = "mpris")]
 	pub fn set_volume(&mut self, vol: u8) {
 		self.volume = vol;
 
