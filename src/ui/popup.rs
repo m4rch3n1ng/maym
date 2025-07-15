@@ -206,7 +206,7 @@ impl Tracks {
 		let path = queue.path();
 		let line = path.map_or_else(
 			|| utils::widgets::line("nothing playing", Style::default().bold().dim().italic()),
-			|path| utils::widgets::line(format!(">> {:?}", path), Style::default().bold()),
+			|path| utils::widgets::line(format!(">> {path:?}"), Style::default().bold()),
 		);
 		let title = Paragraph::new(line).block(Block::default());
 		frame.render_widget(title, title_area);
@@ -468,7 +468,7 @@ impl Lists {
 		*self.state.offset_mut() = self.offset();
 	}
 
-	fn curr(&self) -> ListType {
+	fn curr(&self) -> ListType<'_> {
 		if let Some(ref list) = self.list {
 			let children = list.children();
 			let idx = self.state.selected().expect("state should always be Some");

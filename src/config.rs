@@ -94,7 +94,7 @@ impl Child {
 		match *self {
 			Child::List(ref list) => {
 				let path = list.path.file_name().unwrap_or_else(|| list.path.as_str());
-				let path = format!("{}/", path);
+				let path = format!("{path}/");
 				Cow::Owned(path)
 			}
 			Child::Mp3(ref path) => {
@@ -117,7 +117,7 @@ impl Child {
 	/// - lists are underlined
 	/// - currently playing track / list is accented and bold
 	/// - containing lists are only accented
-	pub fn line(&self, queue: &Queue) -> Line {
+	pub fn line(&self, queue: &Queue) -> Line<'_> {
 		let name = self.name();
 		match *self {
 			Child::List(ref list) => {
@@ -260,7 +260,7 @@ impl List {
 	}
 
 	/// format [`List`] into [`ratatui::text::Line`] struct for ratatui
-	pub fn line(&self, queue: &Queue) -> Line {
+	pub fn line(&self, queue: &Queue) -> Line<'_> {
 		let name = self.path.as_str();
 
 		let underline = Style::default().underlined();

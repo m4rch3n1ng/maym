@@ -112,7 +112,7 @@ impl Track {
 	/// format track into a [`ratatui::text::Line`] struct
 	///
 	/// takes [`Queue`] to highlight currently playing track
-	pub fn line(&self, queue: &Queue) -> Line {
+	pub fn line(&self, queue: &Queue) -> Line<'_> {
 		let fmt = self.to_string();
 		if let Some(track) = queue.track() {
 			if track == self {
@@ -168,13 +168,13 @@ impl Debug for Track {
 impl Display for Track {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		if let Some(track) = self.tag.track() {
-			write!(f, "{:#02} ", track)?;
+			write!(f, "{track:#02} ")?;
 		}
 
 		let title = self.tag.title().unwrap_or("unknown title");
 		let artist = self.tag.artist().unwrap_or("unknown artist");
 
-		write!(f, "{} ~ {}", title, artist)
+		write!(f, "{title} ~ {artist}")
 	}
 }
 
@@ -825,7 +825,7 @@ mod test {
 	}
 
 	/// create [`serde_json`] string deserializer
-	fn deserializer(val: &str) -> serde_json::de::Deserializer<serde_json::de::StrRead> {
+	fn deserializer(val: &str) -> serde_json::de::Deserializer<serde_json::de::StrRead<'_>> {
 		serde_json::de::Deserializer::from_str(val)
 	}
 
