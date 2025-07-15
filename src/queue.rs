@@ -81,7 +81,7 @@ impl Track {
 		Ok(track)
 	}
 
-	/// recursively read [`Track`]s from directory
+	/// recursively read [`Track`]s from the given directory and sort them
 	///
 	/// # Errors
 	///
@@ -106,7 +106,11 @@ impl Track {
 			.filter(|path| path.extension() == Some("mp3"))
 			.map(Track::new);
 
-		recurse_tracks.chain(tracks).collect()
+		let mut tracks = recurse_tracks
+			.chain(tracks)
+			.collect::<Result<Vec<_>, _>>()?;
+		tracks.sort();
+		Ok(tracks)
 	}
 
 	/// format track into a [`ratatui::text::Line`] struct
@@ -255,9 +259,7 @@ impl Queue {
 	pub fn state(state: &State) -> color_eyre::Result<Self> {
 		let (tracks, path) = match state.queue.as_deref() {
 			Some(path) if path.exists() => {
-				let mut tracks = Track::directory(path)?;
-				tracks.sort();
-
+				let tracks = Track::directory(path)?;
 				(tracks, Some(path.to_owned()))
 			}
 			_ => (vec![], None),
@@ -345,8 +347,7 @@ impl Queue {
 		&mut self,
 		path: P,
 	) -> Result<(), QueueError> {
-		let mut tracks = Track::directory(&path)?;
-		tracks.sort();
+		let tracks = Track::directory(&path)?;
 
 		self.path = Some(path.into());
 		self.tracks = tracks;
@@ -597,9 +598,8 @@ mod test {
 	///
 	/// returns error when path doesn't exist or is not a directory
 	fn list<P: AsRef<Utf8Path>>(path: P) -> Result<Vec<Track>, QueueError> {
-		let mut list = Track::directory(path)?;
-		list.sort();
-		Ok(list)
+		let tracks = Track::directory(path)?;
+		Ok(tracks)
 	}
 
 	/// create mock [`Queue`] in path
@@ -610,9 +610,7 @@ mod test {
 	fn queue<P: Into<Utf8PathBuf>>(path: P) -> Result<Queue, QueueError> {
 		let path = path.into();
 
-		let mut tracks = Track::directory(&path)?;
-		tracks.sort();
-
+		let tracks = Track::directory(&path)?;
 		let queue = Queue {
 			path: Some(path),
 			tracks,
