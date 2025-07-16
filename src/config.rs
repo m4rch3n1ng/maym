@@ -332,8 +332,14 @@ impl List {
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ColorWrap(Color);
+
+impl PartialEq<Color> for ColorWrap {
+	fn eq(&self, other: &Color) -> bool {
+		self.0 == *other
+	}
+}
 
 impl Deref for ColorWrap {
 	type Target = Color;
@@ -464,6 +470,7 @@ impl Config {
 mod test {
 	use super::{Child, ColorWrap, ConfigError, List};
 	use camino::Utf8PathBuf;
+	use ratatui::style::Color;
 	use std::cmp::Ordering;
 
 	/// create [`List`]
@@ -600,7 +607,7 @@ mod test {
 	#[test]
 	fn children() -> color_eyre::Result<()> {
 		let mock = list("mock/list 01")?;
-		let comp = vec![
+		let comp = [
 			child("mock/list 01/sub 01"),
 			child("mock/list 01/sub 02"),
 			mp3("mock/list 01/track 00.mp3"),
@@ -614,20 +621,21 @@ mod test {
 	}
 
 	#[test]
-	fn parse_col() -> color_eyre::Result<()> {
-		assert!("cyan".parse::<ColorWrap>().is_ok());
-		assert!("light-gray".parse::<ColorWrap>().is_ok());
-		assert!("Blue".parse::<ColorWrap>().is_ok());
-		assert!("MAGENTA".parse::<ColorWrap>().is_ok());
-		assert!("BRIGHTCYAN".parse::<ColorWrap>().is_ok());
-		assert!("LIGHT_red".parse::<ColorWrap>().is_ok());
+	fn parse_col() {
+		assert_eq!("cyan".parse::<ColorWrap>().unwrap(), Color::Cyan);
+		assert_eq!("light-gray".parse::<ColorWrap>().unwrap(), Color::White);
+		assert_eq!("Blue".parse::<ColorWrap>().unwrap(), Color::Blue);
+		assert_eq!("MAGENTA".parse::<ColorWrap>().unwrap(), Color::Magenta);
+		assert_eq!("BRIGHTCYAN".parse::<ColorWrap>().unwrap(), Color::LightCyan);
+		assert_eq!("LIGHT_red".parse::<ColorWrap>().unwrap(), Color::LightRed);
 
-		assert!("#008080".parse::<ColorWrap>().is_ok());
-		assert!("10".parse::<ColorWrap>().is_ok());
+		assert_eq!(
+			"#008080".parse::<ColorWrap>().unwrap(),
+			Color::Rgb(0x00, 0x80, 0x80)
+		);
+		assert_eq!("10".parse::<ColorWrap>().unwrap(), Color::Indexed(10));
 
 		assert!("none".parse::<ColorWrap>().is_err());
 		assert!("".parse::<ColorWrap>().is_err());
-
-		Ok(())
 	}
 }
