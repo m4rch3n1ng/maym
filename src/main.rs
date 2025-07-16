@@ -56,7 +56,7 @@ impl Application {
 
 		let state = State::init();
 		let queue = Queue::state(&state)?;
-		let player = Player::with_state(&queue, &state)?;
+		let player = Player::with_state(&queue, &state);
 
 		let ui = Ui::new(&queue, &config);
 

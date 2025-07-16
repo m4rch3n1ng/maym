@@ -262,7 +262,7 @@ impl Debug for Player {
 }
 
 impl Player {
-	pub fn new() -> color_eyre::Result<Self> {
+	pub fn new() -> Self {
 		let (to_process_tx, from_main_rx) = RingBuffer::<ToProcess>::new(64);
 		let (to_main_tx, from_process_rx) = RingBuffer::<FromProcess>::new(256);
 
@@ -286,7 +286,7 @@ impl Player {
 		stream.play().unwrap();
 		std::mem::forget(stream);
 
-		let player = Player {
+		Player {
 			muted: false,
 			volume: 45,
 			done: false,
@@ -297,15 +297,14 @@ impl Player {
 
 			to_process_tx,
 			from_process_rx,
-		};
-		Ok(player)
+		}
 	}
 
-	pub fn with_state(queue: &Queue, state: &State) -> color_eyre::Result<Self> {
-		let mut player = Player::new()?;
-		player.state(queue, state)?;
+	pub fn with_state(queue: &Queue, state: &State) -> Self {
+		let mut player = Player::new();
+		player.state(queue, state);
 
-		Ok(player)
+		player
 	}
 
 	pub fn update(&mut self) {
@@ -321,7 +320,7 @@ impl Player {
 		}
 	}
 
-	fn state(&mut self, queue: &Queue, state: &State) -> color_eyre::Result<()> {
+	fn state(&mut self, queue: &Queue, state: &State) {
 		self.volume = state.volume;
 
 		let volume = if state.muted {
@@ -335,15 +334,12 @@ impl Player {
 			let start = state.elapsed();
 			let start = start.unwrap_or_default();
 
-			self.revive(track, start)?;
+			self.revive(track, start);
 		}
-
-		Ok(())
 	}
 
-	fn revive(&mut self, track: &Track, start: Duration) -> color_eyre::Result<()> {
+	fn revive(&mut self, track: &Track, start: Duration) {
 		self.replace_inner(track, PlaybackStatus::Paused, start);
-		Ok(())
 	}
 
 	pub fn replace(&mut self, track: &Track) {

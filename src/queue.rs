@@ -624,7 +624,7 @@ mod test {
 		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
 		let t5 = track("mock/list 01/sub 01/track 05.mp3")?;
 
-		let mut player = Player::new()?;
+		let mut player = Player::new();
 		let mut queue = queue("mock/list 01")?;
 
 		queue.next(&mut player);
@@ -655,7 +655,7 @@ mod test {
 		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
 		let t5 = track("mock/list 01/sub 01/track 05.mp3")?;
 
-		let mut player = Player::new()?;
+		let mut player = Player::new();
 		let mut queue = queue("mock/list 01")?;
 
 		queue.last(&mut player);
@@ -681,7 +681,7 @@ mod test {
 
 	#[test]
 	fn shuf() -> color_eyre::Result<()> {
-		let mut player = Player::new()?;
+		let mut player = Player::new();
 		let mut queue = queue("mock/list 01")?;
 
 		queue.shuffle();
@@ -715,7 +715,7 @@ mod test {
 		let t1 = track("mock/list 01/track 01.mp3")?;
 		let t2 = track("mock/list 01/sub 02/track 02.mp3")?;
 
-		let mut player = Player::new()?;
+		let mut player = Player::new();
 		let mut queue = queue("mock/list 01")?;
 
 		queue.next(&mut player);
@@ -740,7 +740,7 @@ mod test {
 		let t0 = track("mock/list 01/track 00.mp3")?;
 		let t4 = track("mock/list 01/sub 01/track 04.mp3")?;
 
-		let mut player = Player::new()?;
+		let mut player = Player::new();
 		let mut queue = queue("mock/list 01")?;
 
 		queue.next(&mut player);
