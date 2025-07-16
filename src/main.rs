@@ -22,7 +22,7 @@ use ratatui::{
 	Terminal,
 	backend::{Backend, CrosstermBackend},
 };
-#[cfg(feature = "mpris")]
+#[cfg(any(feature = "mpris", feature = "discord"))]
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use thiserror::Error;
@@ -53,9 +53,9 @@ enum MusicError {
 struct Application {
 	pub player: Player,
 	pub config: Config,
-	#[cfg(feature = "mpris")]
+	#[cfg(any(feature = "mpris", feature = "discord"))]
 	pub state: Arc<Mutex<State>>,
-	#[cfg(not(feature = "mpris"))]
+	#[cfg(not(any(feature = "mpris", feature = "discord")))]
 	pub state: State,
 	pub queue: Queue,
 	pub ui: Ui,
@@ -80,7 +80,7 @@ impl Application {
 
 		let ui = Ui::new(&queue, &config);
 
-		#[cfg(feature = "mpris")]
+		#[cfg(any(feature = "mpris", feature = "discord"))]
 		let state = Arc::new(Mutex::new(state));
 		#[cfg(feature = "mpris")]
 		let mpris = Mpris::new(Arc::clone(&state));
@@ -107,9 +107,9 @@ impl Application {
 		let mut ticks = 0;
 
 		loop {
-			#[cfg(feature = "mpris")]
+			#[cfg(any(feature = "mpris", feature = "discord"))]
 			terminal.draw(|f| self.ui.draw_lock(f, &self.state, &self.queue))?;
-			#[cfg(not(feature = "mpris"))]
+			#[cfg(not(any(feature = "mpris", feature = "discord")))]
 			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
 			#[cfg(feature = "mpris")]
@@ -156,9 +156,9 @@ impl Application {
 			}
 
 			if last.elapsed() >= self.tick {
-				#[cfg(feature = "mpris")]
+				#[cfg(any(feature = "mpris", feature = "discord"))]
 				let state = &mut self.state.lock().unwrap();
-				#[cfg(not(feature = "mpris"))]
+				#[cfg(not(any(feature = "mpris", feature = "discord")))]
 				let state = &mut self.state;
 
 				#[cfg(feature = "mpris")]
@@ -179,7 +179,7 @@ impl Application {
 					state.write()?;
 
 					#[cfg(feature = "discord")]
-					self.discord.state(state);
+					self.discord.state(self.state.clone());
 
 					ticks = 0;
 				} else {
@@ -249,11 +249,11 @@ impl Application {
 				if self.ui.is_popup() {
 					self.ui.right();
 				} else {
-					#[cfg(feature = "mpris")]
+					#[cfg(any(feature = "mpris", feature = "discord"))]
 					let state = self.state.lock().unwrap();
-					#[cfg(feature = "mpris")]
+					#[cfg(any(feature = "mpris", feature = "discord"))]
 					self.queue.seek_i(&mut self.player, &state, seek);
-					#[cfg(not(feature = "mpris"))]
+					#[cfg(not(any(feature = "mpris", feature = "discord")))]
 					self.queue.seek_i(&mut self.player, &self.state, seek);
 				}
 			}
@@ -261,11 +261,11 @@ impl Application {
 				if self.ui.is_popup() {
 					self.ui.left();
 				} else {
-					#[cfg(feature = "mpris")]
+					#[cfg(any(feature = "mpris", feature = "discord"))]
 					let state = self.state.lock().unwrap();
-					#[cfg(feature = "mpris")]
+					#[cfg(any(feature = "mpris", feature = "discord"))]
 					self.queue.seek_d(&mut self.player, &state, seek);
-					#[cfg(not(feature = "mpris"))]
+					#[cfg(not(any(feature = "mpris", feature = "discord")))]
 					self.queue.seek_d(&mut self.player, &self.state, seek);
 				}
 			}
