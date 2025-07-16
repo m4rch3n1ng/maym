@@ -526,7 +526,7 @@ impl Queue {
 	pub fn next(&mut self, player: &mut Player) {
 		if let Some(track) = self.next_track() {
 			self.replace(track, player);
-		};
+		}
 	}
 
 	/// restart current track

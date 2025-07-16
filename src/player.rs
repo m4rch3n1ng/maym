@@ -120,7 +120,7 @@ impl Process {
 						self.buffer.clear();
 						self.buffer.reserve(stream.block_size() * 2);
 						self.resampler = None;
-					};
+					}
 
 					self.status = status;
 					self.done = false;

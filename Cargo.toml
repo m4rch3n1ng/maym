@@ -23,6 +23,7 @@ walkdir = "2.5.0"
 
 [lints.clippy]
 new_without_default = "allow"
+unnecessary_semicolon = "warn"
 unnecessary_wraps = "warn"
 
 [profile.dev]
