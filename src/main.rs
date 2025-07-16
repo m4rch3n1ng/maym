@@ -177,7 +177,7 @@ impl Application {
 					state.write()?;
 
 					#[cfg(feature = "discord")]
-					self.discord.state(state);
+					self.discord.state(state.clone());
 
 					ticks = 0;
 				} else {

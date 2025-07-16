@@ -45,7 +45,7 @@ const fn _default_true() -> bool {
 /// struct to track application state
 ///
 /// also used to reinstate on startup
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
 	/// volume
 	pub volume: u8,

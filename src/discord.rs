@@ -5,6 +5,7 @@ use discord_rich_presence::{
 };
 use std::{
 	fmt::Debug,
+	sync::mpsc::Sender,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -13,36 +14,58 @@ const WAIT: Duration = Duration::from_secs(30);
 
 const CLIENT_ID: &str = "1170754365619982346";
 
-pub enum Discord {
+#[derive(Debug)]
+pub struct Discord(Sender<State>);
+
+impl Discord {
+	pub fn new() -> Self {
+		let (tx, rx) = std::sync::mpsc::channel::<State>();
+
+		std::thread::spawn(move || {
+			let mut discord = DiscordState::connect();
+			for state in rx {
+				discord.state(&state);
+			}
+		});
+
+		Discord(tx)
+	}
+
+	pub fn state(&self, state: State) {
+		let _ = self.0.send(state);
+	}
+}
+
+enum DiscordState {
 	Connected(DiscordIpcClient),
 	Disconnected(SystemTime),
 }
 
-impl Discord {
-	pub fn new() -> Discord {
+impl DiscordState {
+	fn connect() -> DiscordState {
 		let mut discord = DiscordIpcClient::new(CLIENT_ID);
 		if discord.connect().is_ok() {
-			Discord::Connected(discord)
+			DiscordState::Connected(discord)
 		} else {
 			let now = SystemTime::now();
-			Discord::Disconnected(now)
+			DiscordState::Disconnected(now)
 		}
 	}
 
 	fn client(&mut self) -> Option<&mut DiscordIpcClient> {
-		if let Discord::Disconnected(time) = self
+		if let DiscordState::Disconnected(time) = self
 			&& time.elapsed().unwrap_or(WAIT) >= WAIT
 		{
-			*self = Discord::new();
+			*self = DiscordState::connect();
 		}
 
 		match self {
-			Discord::Connected(discord) => Some(discord),
-			Discord::Disconnected(_) => None,
+			DiscordState::Connected(discord) => Some(discord),
+			DiscordState::Disconnected(_) => None,
 		}
 	}
 
-	pub fn state(&mut self, state: &State) {
+	fn state(&mut self, state: &State) {
 		let Some(discord) = self.client() else { return };
 		let res = if let Some(activity) = activity(state) {
 			discord.set_activity(activity)
@@ -52,23 +75,23 @@ impl Discord {
 
 		if res.is_err() {
 			let now = SystemTime::now();
-			*self = Discord::Disconnected(now);
+			*self = DiscordState::Disconnected(now);
 		}
 	}
 }
 
-impl Debug for Discord {
+impl Debug for DiscordState {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Discord::Connected(_) => f.debug_tuple("Connected").field(&..).finish(),
-			Discord::Disconnected(_) => f.write_str("Disconnected"),
+			DiscordState::Connected(_) => f.debug_tuple("Connected").field(&..).finish(),
+			DiscordState::Disconnected(_) => f.write_str("Disconnected"),
 		}
 	}
 }
 
-impl Drop for Discord {
+impl Drop for DiscordState {
 	fn drop(&mut self) {
-		if let Discord::Connected(discord) = self {
+		if let DiscordState::Connected(discord) = self {
 			let _ = discord.clear_activity();
 		}
 	}
