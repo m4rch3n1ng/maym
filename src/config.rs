@@ -8,6 +8,8 @@ use crate::{
 	ui::utils as ui,
 };
 use camino::{Utf8Path, Utf8PathBuf};
+use may_clack::{cancel, error::ClackError, input, intro, multi_input, multi_select, outro};
+use owo_colors::OwoColorize;
 use ratatui::{
 	style::{Color, Style, Stylize},
 	text::Line,
@@ -16,7 +18,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::{
 	borrow::Cow,
 	fmt::Display,
-	fs,
+	fs::{self, File},
+	io::{BufWriter, Write as _},
 	ops::{Deref, DerefMut},
 	path::PathBuf,
 	str::FromStr,
@@ -296,6 +299,12 @@ impl List {
 	}
 }
 
+impl Display for List {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(self.path.as_str())
+	}
+}
+
 impl Eq for List {}
 
 impl PartialEq for List {
@@ -307,6 +316,26 @@ impl PartialEq for List {
 impl PartialEq<&Utf8Path> for List {
 	fn eq(&self, other: &&Utf8Path) -> bool {
 		self.path.eq(other)
+	}
+}
+
+impl Ord for List {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		self.path.cmp(&other.path)
+	}
+}
+
+impl PartialOrd for List {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl FromStr for List {
+	type Err = ConfigError;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let path = Utf8PathBuf::from(s);
+		List::new(path)
 	}
 }
 
@@ -441,6 +470,81 @@ impl Config {
 		let file = fs::read_to_string(&*CONFIG_PATH)?;
 		let config = serde_json::from_str(&file)?;
 		Ok(config)
+	}
+
+	pub fn ask() -> Result<Self, ClackError> {
+		intro!("{}", OwoColorize::reversed(&" config "));
+
+		let config = Config::init().ok();
+
+		let vol = config.as_ref().and_then(|conf| conf.vol);
+		let vol = input("volume increase step (in %)")
+			.maybe_initial(vol)
+			.cancel(|| cancel!("cancelled"))
+			.maybe_parse::<u8>()?;
+
+		let seek = config.as_ref().and_then(|conf| conf.seek);
+		let seek = input("track seek amount (in s)")
+			.maybe_initial(seek)
+			.cancel(|| cancel!("cancelled"))
+			.maybe_parse::<u8>()?;
+
+		let accent = config.as_ref().and_then(|conf| conf.accent);
+		let accent = input("accent color")
+			.maybe_initial(accent)
+			.cancel(|| cancel!("cancelled"))
+			.maybe_parse::<ColorWrap>()?;
+
+		let mut prev = config
+			.map(|conf| {
+				let mut lists = conf.lists;
+				lists.sort();
+				lists.dedup();
+				lists
+			})
+			.unwrap_or_default();
+		if !prev.is_empty() {
+			let mut q = multi_select("what lists do you want to remove?");
+			for list in &prev {
+				q.option(list.clone(), list);
+			}
+
+			let to_remove = q.interact()?;
+			prev.retain(|list| !to_remove.iter().any(|rem| rem == list));
+		}
+
+		let mut lists = multi_input("what lists do you want to add?")
+			.min(0)
+			.cancel(|| cancel!("cancelled"))
+			.parse::<List>()?;
+
+		outro!();
+
+		lists.extend(prev);
+		lists.sort();
+
+		Ok(Config {
+			vol,
+			seek,
+			accent,
+			lists,
+		})
+	}
+
+	pub fn write(&self) -> Result<(), ConfigError> {
+		std::fs::create_dir_all(&*CONFIG_DIR)?;
+
+		let file = File::create(&*CONFIG_PATH)?;
+		let mut file = BufWriter::new(file);
+
+		let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
+		let mut serializer = serde_json::Serializer::with_formatter(&mut file, formatter);
+
+		self.serialize(&mut serializer)?;
+		writeln!(file)?;
+
+		file.flush()?;
+		Ok(())
 	}
 
 	/// get reference to [`Config::lists`]
