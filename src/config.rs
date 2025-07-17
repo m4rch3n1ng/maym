@@ -8,6 +8,7 @@ use crate::{
 	ui::utils as ui,
 };
 use camino::{Utf8Path, Utf8PathBuf};
+use color_eyre::{Section, SectionExt, eyre::Context};
 use may_clack::{cancel, error::ClackError, input, intro, multi_input, multi_select, outro};
 use owo_colors::OwoColorize;
 use ratatui::{
@@ -466,9 +467,17 @@ impl Config {
 	/// read from [`CONFIG_PATH`] and init [`Config`] struct
 	///
 	/// todo gracefully handle malformed json
-	pub fn init() -> Result<Self, ConfigError> {
-		let file = fs::read_to_string(&*CONFIG_PATH)?;
-		let config = serde_json::from_str(&file)?;
+	pub fn init() -> color_eyre::Result<Self> {
+		let file = fs::read_to_string(&*CONFIG_PATH)
+			.map_err(ConfigError::from)
+			.wrap_err("failed to read config")
+			.with_section(|| {
+				OwoColorize::cyan(&"maym config")
+					.to_string()
+					.header("Try running:")
+			})?;
+
+		let config = serde_json::from_str(&file).wrap_err("config errror")?;
 		Ok(config)
 	}
 
