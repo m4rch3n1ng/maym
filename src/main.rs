@@ -10,6 +10,7 @@ use self::{
 	mpris::{Mpris, MprisEvent},
 	player::PlaybackStatus,
 };
+use clap::{Parser, Subcommand};
 use color_eyre::eyre::Context;
 use crossterm::{
 	cursor,
@@ -24,6 +25,37 @@ use ratatui::{
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use thiserror::Error;
+
+#[derive(Debug, Parser)]
+#[clap(version, about)]
+#[clap(disable_help_flag = true, disable_version_flag = true)]
+#[clap(disable_help_subcommand = true)]
+#[clap(propagate_version = true)]
+struct Args {
+	#[clap(subcommand)]
+	cmd: Option<Command>,
+
+	/// print help
+	#[arg(long, short, action = clap::ArgAction::Help, global = true)]
+	help: Option<bool>,
+	/// print version
+	#[arg(long, short = 'V', action = clap::ArgAction::Version, global = true)]
+	version: Option<bool>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+	/// edit config
+	Config,
+}
+
+#[test]
+fn clap() {
+	use clap::CommandFactory;
+
+	let cmd = Args::command();
+	cmd.debug_assert();
+}
 
 mod config;
 #[cfg(feature = "mpris")]
@@ -327,8 +359,14 @@ fn install() -> color_eyre::Result<()> {
 fn main() -> color_eyre::Result<()> {
 	install()?;
 
-	let mut app = Application::new().wrap_err("maym error")?;
-	app.start().wrap_err("maym error")?;
+	let args = Args::parse();
+	if let Some(Command::Config) = args.cmd {
+		let config = Config::ask()?;
+		config.write()?;
+	} else {
+		let mut app = Application::new().wrap_err("maym error")?;
+		app.start().wrap_err("maym error")?;
+	}
 
 	Ok(())
 }
