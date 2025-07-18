@@ -6,7 +6,6 @@ use id3::{Tag, TagLike};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
-	collections::VecDeque,
 	fmt::{Debug, Display},
 	sync::Arc,
 	time::Duration,
@@ -243,6 +242,53 @@ impl PartialOrd for Track {
 	}
 }
 
+#[derive(Debug)]
+struct History {
+	queue: Vec<usize>,
+	index: usize,
+}
+
+impl History {
+	fn new() -> Self {
+		History {
+			queue: Vec::new(),
+			index: 0,
+		}
+	}
+
+	/// should only be called if [`Self::next`] is None, otherwise
+	/// weird shit will happen and it will crash in debug mode
+	fn push(&mut self, value: usize) {
+		debug_assert_eq!(self.queue.last(), self.queue.get(self.index));
+		if self.queue.last() == Some(&value) {
+			return;
+		}
+
+		self.queue.push(value);
+		self.index = self.queue.len() - 1;
+		eprintln!("push {self:?}\r");
+	}
+
+	fn clear(&mut self) {
+		self.queue.clear();
+		self.index = 0;
+	}
+
+	fn next(&mut self) -> Option<usize> {
+		eprintln!("next {self:?}\r");
+		let next = self.queue.get(self.index + 1)?;
+		self.index += 1;
+		Some(*next)
+	}
+
+	fn prev(&mut self) -> Option<usize> {
+		eprintln!("prev {self:?}\r");
+		let prev = self.index.checked_sub(1)?;
+		self.index = prev;
+		Some(self.queue[prev])
+	}
+}
+
 /// struct managing playback queue
 #[derive(Debug)]
 pub struct Queue {
@@ -250,10 +296,8 @@ pub struct Queue {
 	path: Option<Utf8PathBuf>,
 	/// queue track list
 	tracks: Vec<Track>,
-	/// previously played tracks
-	last: VecDeque<usize>,
-	/// next-up tracks
-	next: Vec<usize>,
+	/// queue history
+	history: History,
 	/// currently playing track
 	pub index: Option<usize>,
 	/// do shuffle queue
@@ -275,11 +319,15 @@ impl Queue {
 		let index = (state.track.as_ref())
 			.and_then(|current| tracks.iter().position(|track| track == current));
 
+		let mut history = History::new();
+		if let Some(initial) = index {
+			history.push(initial);
+		}
+
 		let queue = Queue {
 			path,
 			tracks,
-			last: VecDeque::new(),
-			next: Vec::new(),
+			history,
 			index,
 			shuffle: state.shuffle,
 		};
@@ -296,9 +344,7 @@ impl Queue {
 	///
 	/// also clears [`Queue::next`] and [`Queue::last`]
 	pub fn shuffle(&mut self) {
-		self.next.clear();
-		self.last.clear();
-
+		self.history.clear();
 		self.shuffle = !self.shuffle;
 	}
 
@@ -308,9 +354,7 @@ impl Queue {
 	#[cfg(feature = "mpris")]
 	pub fn set_shuffle(&mut self, shuffle: bool) {
 		if self.shuffle != shuffle {
-			self.next.clear();
-			self.last.clear();
-
+			self.history.clear();
 			self.shuffle = shuffle;
 		}
 	}
@@ -347,8 +391,7 @@ impl Queue {
 		self.path = Some(path.into());
 		self.tracks = tracks;
 		self.index = None;
-		self.last.clear();
-		self.next.clear();
+		self.history.clear();
 
 		Ok(())
 	}
@@ -367,8 +410,7 @@ impl Queue {
 
 		self.replace(index, player);
 
-		self.next.clear();
-		self.last.clear();
+		self.history.clear();
 
 		Ok(())
 	}
@@ -384,8 +426,7 @@ impl Queue {
 		self.tracks.get(index).ok_or(QueueError::OutOfBounds)?;
 		self.replace(index, player);
 
-		self.next.clear();
-		self.last.clear();
+		self.history.clear();
 
 		Ok(())
 	}
@@ -417,7 +458,7 @@ impl Queue {
 	///
 	/// if it finds a track to play, it pushes it to [`Queue::next`]
 	pub fn last(&mut self, player: &mut Player) {
-		let last = if let Some(last) = self.last.pop_back() {
+		let last = if let Some(last) = self.history.prev() {
 			Some(last)
 		} else if !self.shuffle {
 			self.last_track_sequential()
@@ -427,10 +468,6 @@ impl Queue {
 
 		if let Some(index) = last {
 			player.replace(&self.tracks[index]);
-
-			if let Some(prev) = self.index.replace(index) {
-				self.next.push(prev);
-			}
 		}
 	}
 
@@ -470,12 +507,15 @@ impl Queue {
 
 	/// get next track
 	fn next_track(&mut self) -> Option<usize> {
-		if let Some(track) = self.next.pop() {
+		if let Some(track) = self.history.next() {
 			Some(track)
-		} else if self.shuffle {
-			self.next_track_shuffle()
-		} else {
+		} else if !self.shuffle {
 			self.next_track_sequential()
+		} else if let Some(index) = self.next_track_shuffle() {
+			self.history.push(index);
+			Some(index)
+		} else {
+			None
 		}
 	}
 
@@ -485,19 +525,7 @@ impl Queue {
 	/// and pushes last track to [`Queue::last`]
 	fn replace(&mut self, index: usize, player: &mut Player) {
 		player.replace(&self.tracks[index]);
-
-		// only replace and add to last, if it isn't already playing
-		// (i.e. it hasn't yet been added to last)
-		if self.index != Some(index)
-			&& let Some(current) = self.index.replace(index)
-		{
-			self.last.push_back(current);
-
-			// todo this can probably be like a 1000 times higher
-			if self.last.len() > 25 {
-				self.last.pop_front();
-			}
-		}
+		self.index = Some(index);
 	}
 
 	/// play next track

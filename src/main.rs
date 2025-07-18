@@ -90,16 +90,16 @@ impl Application {
 		Ok(app)
 	}
 
-	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), MusicError> {
+	pub fn run<B: Backend>(&mut self, _terminal: &mut Terminal<B>) -> Result<(), MusicError> {
 		let mut last = Instant::now();
 		let mut skip_done = false;
 		let mut ticks = 0;
 
 		loop {
-			#[cfg(feature = "mpris")]
-			terminal.draw(|f| self.ui.draw_lock(f, &self.state, &self.queue))?;
-			#[cfg(not(feature = "mpris"))]
-			terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
+			// #[cfg(feature = "mpris")]
+			// terminal.draw(|f| self.ui.draw_lock(f, &self.state, &self.queue))?;
+			// #[cfg(not(feature = "mpris"))]
+			// terminal.draw(|f| self.ui.draw(f, &self.state, &self.queue))?;
 
 			#[cfg(feature = "mpris")]
 			if let Some(event) = self.mpris.recv() {
@@ -262,14 +262,14 @@ impl Application {
 	}
 
 	pub fn start(&mut self) -> color_eyre::Result<()> {
-		let mut stdout = std::io::stdout();
+		let stdout = std::io::stdout();
 
 		terminal::enable_raw_mode()?;
-		execute!(
-			stdout,
-			terminal::EnterAlternateScreen,
-			event::EnableMouseCapture
-		)?;
+		// execute!(
+		// 	stdout,
+		// 	terminal::EnterAlternateScreen,
+		// 	event::EnableMouseCapture
+		// )?;
 
 		let backend = CrosstermBackend::new(&stdout);
 		let mut terminal = Terminal::new(backend)?;
