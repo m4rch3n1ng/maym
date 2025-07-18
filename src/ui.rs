@@ -78,7 +78,7 @@ impl Ui {
 		self.lyrics.reset();
 
 		if !matches!(self.popup, Some(Popups::Tracks))
-			&& let Some(idx) = queue.idx()
+			&& let Some(idx) = queue.index
 		{
 			self.tracks.select(idx);
 		}

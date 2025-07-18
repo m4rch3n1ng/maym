@@ -177,7 +177,7 @@ pub struct Tracks {
 
 impl Tracks {
 	pub fn new(queue: &Queue) -> Self {
-		let idx = queue.idx().unwrap_or(0);
+		let idx = queue.index.unwrap_or(0);
 		let state = ListState::default()
 			.with_selected(Some(idx))
 			.with_offset(usize::MAX);
@@ -301,8 +301,7 @@ impl Tracks {
 
 	pub fn enter(&self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let idx = self.state.selected().expect("state should always be Some");
-		queue.select_idx(idx, player)?;
-		Ok(())
+		queue.select_idx(idx, player)
 	}
 }
 
