@@ -276,18 +276,13 @@ impl Queue {
 			.and_then(|current| tracks.iter().find(|&track| track == current))
 			.cloned();
 
-		let shuffle = state.shuffle;
-
-		let last = VecDeque::new();
-		let next = Vec::new();
-
 		let queue = Queue {
 			path,
 			tracks,
-			last,
-			next,
+			last: VecDeque::new(),
+			next: Vec::new(),
 			current,
-			shuffle,
+			shuffle: state.shuffle,
 		};
 		Ok(queue)
 	}

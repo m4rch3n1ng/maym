@@ -24,6 +24,7 @@ walkdir = "2.5.0"
 zbus = { version = "5.8.0", optional = true }
 
 [lints.clippy]
+inconsistent_struct_constructor = "warn"
 new_without_default = "allow"
 unnecessary_semicolon = "warn"
 unnecessary_wraps = "warn"
