@@ -31,12 +31,12 @@ impl MprisRoot {
 
 	#[zbus(property)]
 	fn supported_uri_schemes(&self) -> Vec<&str> {
-		vec![]
+		Vec::new()
 	}
 
 	#[zbus(property)]
 	fn supported_mime_types(&self) -> Vec<&str> {
-		vec![]
+		Vec::new()
 	}
 
 	fn quit(&self) {}
@@ -96,7 +96,7 @@ impl MprisPlayer {
 	}
 
 	#[zbus(property)]
-	fn metadata(&self) -> HashMap<&str, Value<'_>> {
+	fn metadata(&self) -> HashMap<&'static str, Value<'_>> {
 		let state = self.state.lock().unwrap();
 		let mut map = HashMap::new();
 
@@ -106,15 +106,15 @@ impl MprisPlayer {
 		}
 
 		if let Some(track) = &state.track {
-			if let Some(album) = track.album().map(ToOwned::to_owned) {
+			if let Some(album) = track.album().map(Arc::<str>::from) {
 				map.insert("xesam:album", Value::Str(album.into()));
 			}
 
-			if let Some(artist) = track.artist().map(ToOwned::to_owned) {
+			if let Some(artist) = track.artist().map(Arc::<str>::from) {
 				map.insert("xesam:artist", Value::Str(artist.into()));
 			}
 
-			if let Some(title) = track.title().map(ToOwned::to_owned) {
+			if let Some(title) = track.title().map(Arc::<str>::from) {
 				map.insert("xesam:title", Value::Str(title.into()));
 			}
 
@@ -304,7 +304,7 @@ impl Mpris {
 		Ok(())
 	}
 
-	pub fn update(&mut self, updated: MprisUpdate) {
+	pub fn update(&self, updated: MprisUpdate) {
 		let _ = self.up.send(updated);
 	}
 

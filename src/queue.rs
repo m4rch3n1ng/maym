@@ -6,7 +6,6 @@ use id3::{Tag, TagLike};
 use ratatui::{style::Stylize, text::Line};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
-	cmp::Ordering,
 	collections::VecDeque,
 	fmt::{Debug, Display},
 	sync::Arc,
@@ -231,11 +230,10 @@ impl Ord for Track {
 			.zip(other.album())
 			.map(|(s, o)| (UniCase::new(s), UniCase::new(o)));
 
-		tracks
-			.map_or(Ordering::Equal, |(s, o)| s.cmp(&o))
-			.then_with(|| titles.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
-			.then_with(|| artist.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
-			.then_with(|| albums.map_or(Ordering::Equal, |(s, o)| s.cmp(&o)))
+		(tracks.map_or(std::cmp::Ordering::Equal, |(s, o)| s.cmp(&o)))
+			.then_with(|| titles.map_or(std::cmp::Ordering::Equal, |(s, o)| s.cmp(&o)))
+			.then_with(|| artist.map_or(std::cmp::Ordering::Equal, |(s, o)| s.cmp(&o)))
+			.then_with(|| albums.map_or(std::cmp::Ordering::Equal, |(s, o)| s.cmp(&o)))
 	}
 }
 
@@ -265,23 +263,23 @@ pub struct Queue {
 impl Queue {
 	/// initialize [`Queue`] with a [`State`] struct
 	pub fn state(state: &State) -> color_eyre::Result<Self> {
-		let (tracks, path) = match state.queue.as_deref() {
-			Some(path) if path.exists() => {
-				let tracks = Track::directory(path)?;
-				(tracks, Some(path.to_owned()))
-			}
-			_ => (vec![], None),
+		let (tracks, path) = if let Some(path) = state.queue.as_deref()
+			&& path.exists()
+		{
+			let tracks = Track::directory(path)?;
+			(tracks, Some(path.to_owned()))
+		} else {
+			(Vec::new(), None)
 		};
 
-		let current = state.track.as_ref().and_then(|current| {
-			let find = tracks.iter().find(|&track| track == current);
-			find.cloned()
-		});
+		let current = (state.track.as_ref())
+			.and_then(|current| tracks.iter().find(|&track| track == current))
+			.cloned();
 
 		let shuffle = state.shuffle;
 
 		let last = VecDeque::new();
-		let next = vec![];
+		let next = Vec::new();
 
 		let queue = Queue {
 			path,
@@ -421,11 +419,9 @@ impl Queue {
 			return None;
 		}
 
-		let len = self.tracks().len();
-		let idx = self.idx();
-		let idx = idx.map(|idx| {
+		let idx = self.idx().map(|idx| {
 			if idx == 0 {
-				len.saturating_sub(1)
+				self.tracks.len().saturating_sub(1)
 			} else {
 				idx.saturating_sub(1)
 			}
@@ -470,16 +466,7 @@ impl Queue {
 			return None;
 		}
 
-		let len = self.tracks().len();
-		let idx = self.idx();
-		let idx = idx.map_or(0, |idx| {
-			if idx + 1 >= len {
-				0
-			} else {
-				idx.saturating_add(1)
-			}
-		});
-
+		let idx = self.idx().map_or(0, |idx| (idx + 1) % self.tracks.len());
 		Some(self.tracks[idx].clone())
 	}
 
@@ -488,17 +475,15 @@ impl Queue {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if [`Queue::tracks`] is empty
-	fn next_track_shuffle(&mut self) -> Option<Track> {
-		if self.tracks.is_empty() {
-			return None;
-		} else if self.tracks.len() == 1 {
-			return Some(self.tracks[0].clone());
+	fn next_track_shuffle(&self) -> Option<Track> {
+		if self.tracks.len() <= 1 {
+			return Some(self.tracks.first()?.clone());
 		}
 
 		loop {
 			let track = &self.tracks[rand::random_range(..self.tracks.len())];
 			if self.track().is_none_or(|current| current != track) {
-				break Some(track.clone());
+				return Some(track.clone());
 			}
 		}
 	}
@@ -623,7 +608,7 @@ mod test {
 			path: Some(path),
 			tracks,
 			last: VecDeque::new(),
-			next: vec![],
+			next: Vec::new(),
 			current: None,
 			shuffle: false,
 		};

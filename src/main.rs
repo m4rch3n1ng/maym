@@ -21,11 +21,8 @@ use ratatui::{
 	backend::{Backend, CrosstermBackend},
 };
 #[cfg(feature = "mpris")]
-use std::sync::{Arc, Mutex, mpsc::TryRecvError};
-use std::{
-	io,
-	time::{Duration, Instant},
-};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 mod config;
@@ -46,9 +43,6 @@ enum MusicError {
 	QueueError(#[from] QueueError),
 	#[error("state error")]
 	StateError(#[from] StateError),
-	#[error("try recv error")]
-	#[cfg(feature = "mpris")]
-	TryRecvError(#[from] TryRecvError),
 }
 
 #[derive(Debug)]
@@ -268,7 +262,7 @@ impl Application {
 	}
 
 	pub fn start(&mut self) -> color_eyre::Result<()> {
-		let mut stdout = io::stdout();
+		let mut stdout = std::io::stdout();
 
 		terminal::enable_raw_mode()?;
 		execute!(
@@ -290,7 +284,7 @@ impl Application {
 
 impl Drop for Application {
 	fn drop(&mut self) {
-		let mut stdout = io::stdout();
+		let mut stdout = std::io::stdout();
 
 		let _ = terminal::disable_raw_mode();
 		let _ = execute!(
@@ -307,7 +301,7 @@ fn install() -> color_eyre::Result<()> {
 
 	let hook = std::panic::take_hook();
 	std::panic::set_hook(Box::new(move |info| {
-		let mut stdout = io::stdout();
+		let mut stdout = std::io::stdout();
 
 		let _ = terminal::disable_raw_mode();
 		let _ = execute!(

@@ -38,10 +38,9 @@ fn config_dir() -> PathBuf {
 	let mut config = dirs::config_dir().expect("config directory should exist");
 	config.push("maym");
 
-	if config.exists() && !config.is_dir() {
-		fs::remove_file(&config).unwrap();
-		fs::create_dir_all(&config).unwrap();
-	} else if !config.exists() {
+	if config.exists() {
+		assert!(config.is_dir(), "config dir should not be a file");
+	} else {
 		fs::create_dir_all(&config).unwrap();
 	}
 
@@ -66,7 +65,7 @@ pub enum ConfigError {
 
 impl From<std::io::Error> for ConfigError {
 	fn from(io: std::io::Error) -> Self {
-		if let std::io::ErrorKind::NotFound = io.kind() {
+		if io.kind() == std::io::ErrorKind::NotFound {
 			ConfigError::FileNotFound(CONFIG_PATH.clone())
 		} else {
 			ConfigError::IoError(io)
@@ -92,8 +91,8 @@ impl Child {
 	/// and a trailing slash for directories
 	fn name(&self) -> Cow<'_, str> {
 		match self {
-			Child::List(list) => {
-				let path = list.path.file_name().unwrap_or_else(|| list.path.as_str());
+			Child::List(List { path, .. }) => {
+				let path = path.file_name().unwrap_or_else(|| path.as_str());
 				let path = format!("{path}/");
 				Cow::Owned(path)
 			}
@@ -119,8 +118,8 @@ impl Child {
 	/// - containing lists are only accented
 	pub fn line(&self, queue: &Queue) -> Line<'_> {
 		let name = self.name();
-		match *self {
-			Child::List(ref list) => {
+		match self {
+			Child::List(list) => {
 				let underline = Style::default().underlined();
 				let accent = ui::style::accent().underlined();
 				if let Some(path) = queue.path() {
@@ -135,7 +134,7 @@ impl Child {
 					ui::widgets::line(name, underline)
 				}
 			}
-			Child::Mp3(ref path) => {
+			Child::Mp3(path) => {
 				if let Some(track) = queue.track() {
 					if track == path {
 						ui::widgets::line(name, ui::style::accent().bold())
@@ -221,11 +220,15 @@ impl List {
 		}
 	}
 
+	pub fn has_parent(&self) -> bool {
+		self.parent.is_some()
+	}
+
 	/// extract parent from [`List`], if list has parent
-	pub fn parent(&mut self) -> Option<List> {
-		// i can take the parent, as this list should be discarded
-		// if you want to get an owned version of the parent
-		self.parent.take().map(|bx| *bx)
+	pub fn into_parent(mut self) -> Option<(Option<usize>, List)> {
+		self.parent
+			.take()
+			.map(|p| (p.children().iter().position(|l| l == &self), *p))
 	}
 
 	// todo error handling

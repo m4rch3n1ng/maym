@@ -13,7 +13,7 @@ mod popup;
 pub mod utils;
 mod window;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Popups {
 	Tracks,
 	Lists,
@@ -95,7 +95,7 @@ impl Ui {
 	}
 
 	pub fn lists(&mut self) {
-		if let Some(Popups::Lists) = self.popup {
+		if self.popup == Some(Popups::Lists) {
 			self.popup = None;
 		} else {
 			self.popup = Some(Popups::Lists);
@@ -103,7 +103,7 @@ impl Ui {
 	}
 
 	pub fn tracks(&mut self) {
-		if let Some(Popups::Tracks) = self.popup {
+		if self.popup == Some(Popups::Tracks) {
 			self.popup = None;
 		} else {
 			self.popup = Some(Popups::Tracks);
@@ -111,7 +111,7 @@ impl Ui {
 	}
 
 	pub fn tags(&mut self) {
-		if let Some(Popups::Tags) = self.popup {
+		if self.popup == Some(Popups::Tags) {
 			self.popup = None;
 		} else {
 			self.popup = Some(Popups::Tags);
@@ -119,7 +119,7 @@ impl Ui {
 	}
 
 	pub fn lyrics(&mut self) {
-		if let Some(Popups::Lyrics) = self.popup {
+		if self.popup == Some(Popups::Lyrics) {
 			self.popup = None;
 		} else {
 			self.popup = Some(Popups::Lyrics);
@@ -179,19 +179,19 @@ impl Ui {
 	}
 
 	pub fn right(&mut self) {
-		if let Some(Popups::Lists) = self.popup {
+		if self.popup == Some(Popups::Lists) {
 			self.lists.right();
 		}
 	}
 
 	pub fn left(&mut self) {
-		if let Some(Popups::Lists) = self.popup {
+		if self.popup == Some(Popups::Lists) {
 			self.lists.left();
 		}
 	}
 
 	pub fn backspace(&mut self) {
-		if let Some(Popups::Lists) = self.popup {
+		if self.popup == Some(Popups::Lists) {
 			self.lists.left();
 		}
 	}

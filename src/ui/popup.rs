@@ -324,21 +324,17 @@ impl Lists {
 	pub fn new(config: &Config, queue: &Queue) -> Self {
 		let lists = config.lists().to_owned();
 
-		let list = if let Some(path) = queue.path() {
-			lists.iter().find_map(|list| list.find(path))
-		} else {
-			None
-		};
+		let list = queue
+			.path()
+			.and_then(|path| lists.iter().find_map(|list| list.find(path)));
 
-		let idx = if let Some(track) = queue.track() {
-			if let Some(list) = &list {
-				list.children()
-					.iter()
-					.enumerate()
-					.find_map(|(i, child)| (child == track).then_some(i))
-			} else {
-				None
-			}
+		let idx = if let Some(track) = queue.track()
+			&& let Some(list) = &list
+		{
+			list.children()
+				.iter()
+				.enumerate()
+				.find_map(|(i, child)| (child == track).then_some(i))
 		} else {
 			None
 		};
@@ -507,18 +503,13 @@ impl Lists {
 	}
 
 	pub fn left(&mut self) {
-		if let Some(list) = &mut self.list {
-			// warn: list is now invalid as the parent is now `None`
-			if let Some(parent) = list.parent() {
-				let idx = parent.children().iter().position(|child| child == list);
-				let idx = idx.unwrap_or(0);
-
-				self.set(Some(parent), idx);
+		if let Some(list) = self.list.take() {
+			if list.has_parent() {
+				let (idx, parent) = list.into_parent().unwrap();
+				self.set(Some(parent), idx.unwrap_or(0));
 			} else {
-				let idx = self.lists.iter().position(|root| root == list);
-				let idx = idx.unwrap_or(0);
-
-				self.set(None, idx);
+				let idx = self.lists.iter().position(|root| root == &list);
+				self.set(None, idx.unwrap_or(0));
 			}
 		}
 	}
@@ -533,7 +524,6 @@ impl Lists {
 			}
 			ListType::Child(child, parent) => match child {
 				Child::List(list) => {
-					let list = list.clone();
 					self.set(Some(list), 0);
 				}
 				Child::Mp3(path) => {
@@ -546,7 +536,7 @@ impl Lists {
 		Ok(())
 	}
 
-	pub fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+	pub fn space(&self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let curr = self.curr();
 
 		match curr {

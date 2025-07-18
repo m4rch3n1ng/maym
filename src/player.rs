@@ -8,6 +8,7 @@ use creek::read::ReadError;
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
 use rtrb::{Consumer, Producer, RingBuffer};
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
+use std::convert::identity;
 use std::{collections::VecDeque, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,7 +149,7 @@ impl Process {
 		}
 
 		if let Some(stream) = &mut self.stream {
-			if self.done || !stream.is_ready().unwrap() {
+			if self.done || !stream.is_ready().is_ok_and(identity) {
 				Self::silence(data);
 				return;
 			}
@@ -349,8 +350,7 @@ impl Player {
 	fn replace_inner(&mut self, track: &Track, status: PlaybackStatus, start: Duration) {
 		let opts = ReadStreamOptions::default();
 
-		let mut read_stream =
-			ReadDiskStream::<SymphoniaDecoder>::new(track.path(), 0, opts).unwrap();
+		let mut read_stream = ReadDiskStream::new(track.path(), 0, opts).unwrap();
 
 		// seek to the specified position in the track
 		let sample_rate = read_stream.info().sample_rate.unwrap();
