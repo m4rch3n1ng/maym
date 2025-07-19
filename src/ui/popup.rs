@@ -177,7 +177,7 @@ pub struct Tracks {
 
 impl Tracks {
 	pub fn new(queue: &Queue) -> Self {
-		let idx = queue.index.unwrap_or(0);
+		let idx = queue.index().unwrap_or(0);
 		let state = ListState::default()
 			.with_selected(Some(idx))
 			.with_offset(usize::MAX);

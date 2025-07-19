@@ -255,7 +255,7 @@ pub struct Queue {
 	/// next-up tracks
 	next: Vec<usize>,
 	/// currently playing track
-	pub index: Option<usize>,
+	current: Option<usize>,
 	/// do shuffle queue
 	shuffle: bool,
 }
@@ -272,7 +272,7 @@ impl Queue {
 			(Vec::new(), None)
 		};
 
-		let index = (state.track.as_ref())
+		let current = (state.track.as_ref())
 			.and_then(|current| tracks.iter().position(|track| track == current));
 
 		let queue = Queue {
@@ -280,7 +280,7 @@ impl Queue {
 			tracks,
 			last: VecDeque::new(),
 			next: Vec::new(),
-			index,
+			current,
 			shuffle: state.shuffle,
 		};
 		Ok(queue)
@@ -330,7 +330,13 @@ impl Queue {
 	/// return currently playing track
 	#[inline]
 	pub fn track(&self) -> Option<&Track> {
-		self.index.map(|idx| &self.tracks[idx])
+		self.current.map(|idx| &self.tracks[idx])
+	}
+
+	/// return index of currently playing track
+	#[inline]
+	pub fn index(&self) -> Option<usize> {
+		self.current
 	}
 
 	/// queue a new directory
@@ -346,7 +352,7 @@ impl Queue {
 
 		self.path = Some(path.into());
 		self.tracks = tracks;
-		self.index = None;
+		self.current = None;
 		self.last.clear();
 		self.next.clear();
 
@@ -399,7 +405,7 @@ impl Queue {
 			return None;
 		}
 
-		self.index.map(|idx| {
+		self.current.map(|idx| {
 			if idx == 0 {
 				self.tracks.len().saturating_sub(1)
 			} else {
@@ -428,7 +434,7 @@ impl Queue {
 		if let Some(index) = last {
 			player.replace(&self.tracks[index]);
 
-			if let Some(prev) = self.index.replace(index) {
+			if let Some(prev) = self.current.replace(index) {
 				self.next.push(prev);
 			}
 		}
@@ -444,7 +450,7 @@ impl Queue {
 			return None;
 		}
 
-		let idx = self.index.map_or(0, |idx| (idx + 1) % self.tracks.len());
+		let idx = self.current.map_or(0, |idx| (idx + 1) % self.tracks.len());
 		Some(idx)
 	}
 
@@ -462,7 +468,7 @@ impl Queue {
 
 		loop {
 			let track = rand::random_range(..self.tracks.len());
-			if self.index.is_none_or(|current| current != track) {
+			if self.current.is_none_or(|current| current != track) {
 				return Some(track);
 			}
 		}
@@ -488,8 +494,8 @@ impl Queue {
 
 		// only replace and add to last, if it isn't already playing
 		// (i.e. it hasn't yet been added to last)
-		if self.index != Some(index)
-			&& let Some(current) = self.index.replace(index)
+		if self.current != Some(index)
+			&& let Some(current) = self.current.replace(index)
 		{
 			self.last.push_back(current);
 
@@ -509,7 +515,7 @@ impl Queue {
 
 	/// restart current track
 	pub fn restart(&self, player: &mut Player) {
-		if self.index.is_some() {
+		if self.current.is_some() {
 			let start = Duration::ZERO;
 			player.seek(start);
 		}
@@ -517,7 +523,7 @@ impl Queue {
 
 	/// seek backwards in current track
 	pub fn seek_d(&self, player: &mut Player, state: &State, amt: Duration) {
-		if self.index.is_some()
+		if self.current.is_some()
 			&& let Some(elapsed) = state.elapsed()
 		{
 			let position = elapsed.saturating_sub(amt);
@@ -527,7 +533,7 @@ impl Queue {
 
 	/// seek forward in current track
 	pub fn seek_i(&mut self, player: &mut Player, state: &State, amt: Duration) {
-		if self.index.is_some()
+		if self.current.is_some()
 			&& let Some((elapsed, duration)) = state.elapsed_duration()
 		{
 			let position = elapsed.saturating_add(amt);
@@ -589,7 +595,7 @@ mod test {
 			tracks,
 			last: VecDeque::new(),
 			next: Vec::new(),
-			index: None,
+			current: None,
 			shuffle: false,
 		};
 		Ok(queue)
@@ -669,14 +675,14 @@ mod test {
 		queue.next(&mut player);
 		queue.next(&mut player);
 
-		let tt = queue.index.clone();
+		let tt = queue.current.clone();
 
 		queue.next(&mut player);
 		queue.last(&mut player);
 		queue.last(&mut player);
 		queue.next(&mut player);
 
-		assert_eq!(queue.index, tt);
+		assert_eq!(queue.current, tt);
 		assert_eq!(queue.next.len(), 1);
 		assert_eq!(queue.last.len(), 2);
 
@@ -759,21 +765,21 @@ mod test {
 
 		assert!(queue.path.is_none());
 		assert!(queue.tracks.is_empty());
-		assert!(queue.index.is_none());
+		assert!(queue.current.is_none());
 
 		let no_exists = state::test::mock(Some("mock/list 04"), Some("mock/list 01/track 01.mp3"))?;
 		let queue = Queue::state(&no_exists)?;
 
 		assert!(queue.path.is_none());
 		assert!(queue.tracks.is_empty());
-		assert!(queue.index.is_none());
+		assert!(queue.current.is_none());
 
 		let no_track = state::test::mock(Some("mock/list 01"), None)?;
 		let queue = Queue::state(&no_track)?;
 
 		assert_eq!(queue.path, Some("mock/list 01".into()));
 		assert_eq!(queue.tracks.len(), 6);
-		assert!(queue.index.is_none());
+		assert!(queue.current.is_none());
 
 		let track_not_in_list =
 			state::test::mock(Some("mock/list 01"), Some("mock/list 02/track 01.mp3"))?;
@@ -781,7 +787,7 @@ mod test {
 
 		assert!(queue.path.is_some());
 		assert_eq!(queue.tracks.len(), 6);
-		assert!(queue.index.is_none());
+		assert!(queue.current.is_none());
 
 		let exists = state::test::mock(Some("mock/list 01"), Some("mock/list 01/track 01.mp3"))?;
 		let track = Track::new("mock/list 01/track 01.mp3".into())?;
