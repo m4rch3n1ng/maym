@@ -343,10 +343,6 @@ impl Player {
 		self.replace_inner(track, PlaybackStatus::Paused, start);
 	}
 
-	pub fn replace(&mut self, track: &Track) {
-		self.replace_inner(track, PlaybackStatus::Play, Duration::ZERO);
-	}
-
 	fn replace_inner(&mut self, track: &Track, status: PlaybackStatus, start: Duration) {
 		let opts = ReadStreamOptions::default();
 
@@ -451,5 +447,15 @@ impl Player {
 		let _ = self
 			.to_process_tx
 			.push(ToProcess::Volume(vol as f32 / 100.));
+	}
+}
+
+pub trait Playable {
+	fn replace(&mut self, track: &Track);
+}
+
+impl Playable for Player {
+	fn replace(&mut self, track: &Track) {
+		self.replace_inner(track, PlaybackStatus::Play, Duration::ZERO);
 	}
 }

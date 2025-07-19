@@ -1,6 +1,10 @@
 //! queue and track
 
-use crate::{player::Player, state::State, ui::utils as ui};
+use crate::{
+	player::{Playable, Player},
+	state::State,
+	ui::utils as ui,
+};
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use ratatui::{style::Stylize, text::Line};
@@ -366,7 +370,11 @@ impl Queue {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if the track of the path isn't in the [`Queue::tracks`]
-	pub fn select_path(&mut self, path: &Utf8Path, player: &mut Player) -> Result<(), QueueError> {
+	pub fn select_path<P: Playable>(
+		&mut self,
+		path: &Utf8Path,
+		player: &mut P,
+	) -> Result<(), QueueError> {
 		let Some(index) = self.tracks.iter().position(|iter| iter == path) else {
 			return Err(QueueError::NoTrack(path.to_owned()));
 		};
@@ -386,7 +394,11 @@ impl Queue {
 	/// # Errors
 	///
 	/// returns [`QueueError`] if the index is out bounds
-	pub fn select_idx(&mut self, index: usize, player: &mut Player) -> Result<(), QueueError> {
+	pub fn select_idx<P: Playable>(
+		&mut self,
+		index: usize,
+		player: &mut P,
+	) -> Result<(), QueueError> {
 		self.tracks.get(index).ok_or(QueueError::OutOfBounds)?;
 		self.replace(index, player);
 
@@ -422,7 +434,7 @@ impl Queue {
 	/// 3. give up
 	///
 	/// if it finds a track to play, it pushes it to [`Queue::next`]
-	pub fn last(&mut self, player: &mut Player) {
+	pub fn last<P: Playable>(&mut self, player: &mut P) {
 		let last = if let Some(last) = self.last.pop_back() {
 			Some(last)
 		} else if !self.shuffle {
@@ -489,7 +501,7 @@ impl Queue {
 	///
 	/// replaces track in [`Player`] via [`Player::replace`]
 	/// and pushes last track to [`Queue::last`]
-	fn replace(&mut self, index: usize, player: &mut Player) {
+	fn replace<P: Playable>(&mut self, index: usize, player: &mut P) {
 		player.replace(&self.tracks[index]);
 
 		// only replace and add to last, if it isn't already playing
@@ -507,7 +519,7 @@ impl Queue {
 	}
 
 	/// play next track
-	pub fn next(&mut self, player: &mut Player) {
+	pub fn next<P: Playable>(&mut self, player: &mut P) {
 		if let Some(track) = self.next_track() {
 			self.replace(track, player);
 		}
@@ -557,9 +569,21 @@ impl Queue {
 #[cfg(test)]
 mod test {
 	use super::{Queue, QueueError, Track};
-	use crate::{player::Player, state};
+	use crate::{player::Playable, state};
 	use camino::{Utf8Path, Utf8PathBuf};
 	use std::{cmp::Ordering, collections::VecDeque};
+
+	struct Player;
+
+	impl Player {
+		fn new() -> Player {
+			Player
+		}
+	}
+
+	impl Playable for Player {
+		fn replace(&mut self, _track: &Track) {}
+	}
 
 	/// create [`Track`] by reading from disk
 	///
@@ -675,7 +699,7 @@ mod test {
 		queue.next(&mut player);
 		queue.next(&mut player);
 
-		let tt = queue.current.clone();
+		let tt = queue.current;
 
 		queue.next(&mut player);
 		queue.last(&mut player);
@@ -707,13 +731,13 @@ mod test {
 		queue.next(&mut player);
 		queue.last(&mut player);
 
-		queue.select_idx(2, &mut player);
+		queue.select_idx(2, &mut player)?;
 		assert_eq!(queue.track(), Some(&t2));
 
 		assert!(queue.next.is_empty());
 		assert!(queue.last.is_empty());
 
-		queue.select_idx(1, &mut player);
+		queue.select_idx(1, &mut player)?;
 		assert_eq!(queue.track(), Some(&t1));
 
 		Ok(())
