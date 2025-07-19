@@ -1,0 +1,27 @@
+name: action
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: install deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install libasound2-dev libdbus-1-dev pkg-config
+      - name: build
+        run: cargo clippy -- -D warnings
+      - name: test
+        run: cargo test
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
