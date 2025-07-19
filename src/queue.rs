@@ -5,6 +5,7 @@ use crate::{
 	state::State,
 	ui::utils as ui,
 };
+use arrayvec::ArrayVec;
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
 use ratatui::{style::Stylize, text::Line};
@@ -248,14 +249,14 @@ impl PartialOrd for Track {
 
 #[derive(Debug)]
 struct History {
-	queue: Vec<usize>,
+	queue: ArrayVec<usize, 100>,
 	index: usize,
 }
 
 impl History {
 	fn new() -> Self {
 		History {
-			queue: Vec::new(),
+			queue: ArrayVec::new(),
 			index: 0,
 		}
 	}
@@ -266,6 +267,11 @@ impl History {
 		debug_assert_eq!(self.queue.len().saturating_sub(1), self.index);
 		if self.queue.last() == Some(&value) {
 			return;
+		}
+
+		if self.queue.is_full() {
+			self.queue.as_mut_slice().rotate_left(1);
+			self.queue.pop();
 		}
 
 		self.queue.push(value);
