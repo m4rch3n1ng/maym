@@ -145,6 +145,13 @@ impl MprisPlayer {
 
 		let vol = vol.clamp(0.0, 1.0);
 		let vol = vol * 100.0;
+		// truncate, but not on floating point imprecision
+		let vol = if vol.fract() > 0.99 {
+			vol.ceil()
+		} else {
+			vol.floor()
+		};
+
 		self.tx.send(MprisEvent::Volume(vol as u8)).unwrap();
 	}
 
