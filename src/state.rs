@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use std::{
 	fs::{self, File},
 	io::{BufWriter, Write},
-	ops::{Deref, DerefMut},
 	path::PathBuf,
 	sync::LazyLock,
 	time::Duration,
@@ -43,43 +42,6 @@ const fn _default_true() -> bool {
 	true
 }
 
-#[derive(Debug)]
-struct DurationWrap(Duration);
-
-impl Deref for DurationWrap {
-	type Target = Duration;
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl DerefMut for DurationWrap {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0
-	}
-}
-
-impl<'de> Deserialize<'de> for DurationWrap {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		let secs = u64::deserialize(deserializer)?;
-		let duration = Duration::from_secs(secs);
-		Ok(DurationWrap(duration))
-	}
-}
-
-impl Serialize for DurationWrap {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		let secs = self.0.as_secs();
-		secs.serialize(serializer)
-	}
-}
-
 /// struct to track application state
 ///
 /// also used to reinstate on startup
@@ -93,9 +55,11 @@ pub struct State {
 	/// is muted
 	pub muted: bool,
 	/// track time elapsed
-	elapsed: Option<DurationWrap>,
+	#[serde(with = "duration")]
+	elapsed: Option<Duration>,
 	/// track time length
-	duration: Option<DurationWrap>,
+	#[serde(with = "duration")]
+	duration: Option<Duration>,
 	/// [`Queue`] is shuffle
 	pub shuffle: bool,
 	/// [`Utf8PathBuf`] to queue
@@ -123,13 +87,13 @@ impl State {
 	/// elapsed time
 	#[inline]
 	pub fn elapsed(&self) -> Option<Duration> {
-		self.elapsed.as_deref().copied()
+		self.elapsed
 	}
 
 	/// track duration
 	#[inline]
 	pub fn duration(&self) -> Option<Duration> {
-		self.duration.as_deref().copied()
+		self.duration
 	}
 
 	/// update self to reflect current application state
@@ -160,8 +124,8 @@ impl State {
 			mpris.update(MprisUpdate::Volume);
 		}
 
-		self.duration = player.duration().map(DurationWrap);
-		self.elapsed = player.elapsed().map(DurationWrap);
+		self.duration = player.duration();
+		self.elapsed = player.elapsed();
 
 		let shuffle = queue.is_shuffle();
 		if self.shuffle != shuffle {
@@ -217,6 +181,28 @@ impl Default for State {
 			queue: None,
 			track: None,
 		}
+	}
+}
+
+mod duration {
+	use serde::{Deserialize, Serialize};
+	use std::time::Duration;
+
+	pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		let secs = Option::<u64>::deserialize(deserializer)?;
+		let duration = secs.map(Duration::from_secs);
+		Ok(duration)
+	}
+
+	pub fn serialize<S>(value: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		let secs = value.map(|duration| duration.as_secs());
+		secs.serialize(serializer)
 	}
 }
 
