@@ -52,16 +52,16 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 	if let Some((elapsed, duration)) = state.elapsed_duration() {
 		frame.render_widget(block, area);
 
-		let chunks = Layout::default()
+		let [seek, info] = *Layout::default()
 			.constraints([Constraint::Max(1), Constraint::Max(1)])
 			.vertical_margin(2)
 			.horizontal_margin(2)
-			.split(area);
+			.split(area)
+		else {
+			unreachable!();
+		};
 
-		let seek = chunks[0];
-		self::seek_seek(frame, (elapsed, duration), state, seek);
-
-		let info = chunks[1];
+		self::seek_progress(frame, (elapsed, duration), state, seek);
 		self::seek_info(frame, state, info);
 	} else {
 		let dimmed = Style::default().dim();
@@ -74,7 +74,7 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 	}
 }
 
-fn seek_seek(
+fn seek_progress(
 	frame: &mut Frame,
 	(elapsed, duration): (Duration, Duration),
 	state: &State,
