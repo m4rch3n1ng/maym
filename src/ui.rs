@@ -6,8 +6,6 @@ use crate::{
 	state::State,
 };
 use ratatui::{Frame, layout::Rect};
-#[cfg(feature = "mpris")]
-use std::sync::Mutex;
 
 mod popup;
 pub mod utils;
@@ -42,7 +40,7 @@ impl Ui {
 	}
 
 	#[cfg(feature = "mpris")]
-	pub fn draw_lock(&mut self, frame: &mut Frame, state: &Mutex<State>, queue: &Queue) {
+	pub fn draw_lock(&mut self, frame: &mut Frame, state: &std::sync::Mutex<State>, queue: &Queue) {
 		let state = state.lock().unwrap();
 		self.draw(frame, &state, queue);
 	}

@@ -599,8 +599,8 @@ impl Queue {
 
 #[cfg(test)]
 mod test {
-	use super::{Queue, QueueError, Track};
-	use crate::{player::Playable, queue::History, state};
+	use super::{History, Queue, QueueError, Track};
+	use crate::{player::Playable, state};
 	use camino::{Utf8Path, Utf8PathBuf};
 	use std::cmp::Ordering;
 
