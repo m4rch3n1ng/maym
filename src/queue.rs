@@ -313,7 +313,7 @@ pub struct Queue {
 
 impl Queue {
 	/// initialize [`Queue`] with a [`State`] struct
-	pub fn state(state: &State) -> color_eyre::Result<Self> {
+	pub fn with_state(state: &State) -> color_eyre::Result<Self> {
 		let (tracks, path) = if let Some(path) = state.queue.as_deref()
 			&& path.exists()
 		{
@@ -811,21 +811,21 @@ mod test {
 	#[test]
 	fn queue_state() -> color_eyre::Result<()> {
 		let empty = state::test::mock::<&str>(None, None)?;
-		let queue = Queue::state(&empty)?;
+		let queue = Queue::with_state(&empty)?;
 
 		assert!(queue.path.is_none());
 		assert!(queue.tracks.is_empty());
 		assert!(queue.current.is_none());
 
 		let no_exists = state::test::mock(Some("mock/list 04"), Some("mock/list 01/track 01.mp3"))?;
-		let queue = Queue::state(&no_exists)?;
+		let queue = Queue::with_state(&no_exists)?;
 
 		assert!(queue.path.is_none());
 		assert!(queue.tracks.is_empty());
 		assert!(queue.current.is_none());
 
 		let no_track = state::test::mock(Some("mock/list 01"), None)?;
-		let queue = Queue::state(&no_track)?;
+		let queue = Queue::with_state(&no_track)?;
 
 		assert_eq!(queue.path, Some("mock/list 01".into()));
 		assert_eq!(queue.tracks.len(), 6);
@@ -833,7 +833,7 @@ mod test {
 
 		let track_not_in_list =
 			state::test::mock(Some("mock/list 01"), Some("mock/list 02/track 01.mp3"))?;
-		let queue = Queue::state(&track_not_in_list)?;
+		let queue = Queue::with_state(&track_not_in_list)?;
 
 		assert!(queue.path.is_some());
 		assert_eq!(queue.tracks.len(), 6);
@@ -841,7 +841,7 @@ mod test {
 
 		let exists = state::test::mock(Some("mock/list 01"), Some("mock/list 01/track 01.mp3"))?;
 		let track = Track::new("mock/list 01/track 01.mp3".into())?;
-		let queue = Queue::state(&exists)?;
+		let queue = Queue::with_state(&exists)?;
 
 		assert!(queue.path.is_some());
 		assert_eq!(queue.tracks.len(), 6);
