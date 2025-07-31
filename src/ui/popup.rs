@@ -17,9 +17,8 @@ use ratatui::{
 pub struct TextPopup {
 	inner: fn(&Queue) -> Vec<Line<'_>>,
 	title: &'static str,
-	pos: u16,
-	scroll_amt: u16,
-	do_scroll: bool,
+	scroll: u16,
+	max_scroll: u16,
 }
 
 impl TextPopup {
@@ -27,9 +26,8 @@ impl TextPopup {
 		TextPopup {
 			inner,
 			title,
-			pos: 0,
-			scroll_amt: 0,
-			do_scroll: false,
+			scroll: 0,
+			max_scroll: 0,
 		}
 	}
 
@@ -37,18 +35,8 @@ impl TextPopup {
 		let lines = usize::min(list.len(), u16::MAX as usize) as u16;
 		let height = utils::popup::block().inner(area).height;
 
-		let n_scroll_max = lines.saturating_sub(height);
-		if n_scroll_max != self.scroll_amt {
-			self.pos = 0;
-			self.scroll_amt = n_scroll_max;
-		}
-
-		if lines > height && !self.do_scroll {
-			self.do_scroll = true;
-		} else if lines <= height && self.do_scroll {
-			self.pos = 0;
-			self.do_scroll = false;
-		}
+		self.max_scroll = lines.saturating_sub(height);
+		self.scroll = self.scroll.clamp(0, self.max_scroll);
 	}
 }
 
@@ -59,32 +47,30 @@ impl Popup for TextPopup {
 
 		self.update_scroll(area, &list);
 
-		let par = if self.do_scroll {
-			Paragraph::new(list).block(block).scroll((self.pos, 0))
-		} else {
-			Paragraph::new(list).block(block)
-		};
+		let par = Paragraph::new(list).block(block).scroll((self.scroll, 0));
 
 		frame.render_widget(Clear, area);
 		frame.render_widget(par, area);
 	}
 
 	fn change_track(&mut self, _queue: &Queue) {
-		self.pos = 0;
+		self.scroll = 0;
 	}
 
 	fn up(&mut self) {
-		if self.do_scroll {
-			let pos = self.pos.saturating_sub(1);
-			self.pos = pos;
-		}
+		self.scroll = self.scroll.saturating_sub(1);
 	}
 
 	fn down(&mut self) {
-		if self.do_scroll {
-			let pos = u16::min(self.scroll_amt, self.pos + 1);
-			self.pos = pos;
-		}
+		self.scroll = self.scroll.saturating_add(1).min(self.max_scroll);
+	}
+
+	fn home(&mut self) {
+		self.scroll = 0;
+	}
+
+	fn end(&mut self) {
+		self.scroll = self.max_scroll;
 	}
 }
 
