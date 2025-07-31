@@ -2,8 +2,8 @@ use super::utils;
 use crate::{
 	config::{Child, Config, List},
 	player::Player,
-	queue::{Queue, QueueError, Track},
-	state::State,
+	queue::{Queue, QueueError},
+	ui::Popup,
 };
 use ratatui::{
 	Frame,
@@ -14,45 +14,26 @@ use ratatui::{
 };
 
 #[derive(Debug)]
-pub struct Popup<T: PopupTrait> {
-	inner: T,
+pub struct TextPopup {
+	inner: fn(&Queue) -> Vec<Line<'_>>,
+	title: &'static str,
 	pos: u16,
 	scroll_amt: u16,
 	do_scroll: bool,
 }
 
-impl<T: PopupTrait + Default> Default for Popup<T> {
-	fn default() -> Self {
-		Popup {
-			inner: T::default(),
+impl TextPopup {
+	fn new(title: &'static str, inner: fn(&Queue) -> Vec<Line<'_>>) -> TextPopup {
+		TextPopup {
+			inner,
+			title,
 			pos: 0,
 			scroll_amt: 0,
 			do_scroll: false,
 		}
 	}
-}
 
-impl<T: PopupTrait> Popup<T> {
-	pub fn draw(&mut self, frame: &mut Frame, area: Rect, state: &State) {
-		self.update_scroll(area, state);
-
-		let title = self.inner.title();
-		let block = utils::popup::block().title(title);
-		let list = self.inner.list(state);
-
-		let par = if self.do_scroll {
-			Paragraph::new(list).block(block).scroll((self.pos, 0))
-		} else {
-			Paragraph::new(list).block(block)
-		};
-
-		frame.render_widget(Clear, area);
-		frame.render_widget(par, area);
-	}
-
-	fn update_scroll(&mut self, area: Rect, state: &State) {
-		let list = self.inner.list(state);
-
+	fn update_scroll(&mut self, area: Rect, list: &[Line<'_>]) {
 		let lines = usize::min(list.len(), u16::MAX as usize) as u16;
 		let height = utils::popup::block().inner(area).height;
 
@@ -69,19 +50,37 @@ impl<T: PopupTrait> Popup<T> {
 			self.do_scroll = false;
 		}
 	}
+}
 
-	pub fn reset(&mut self) {
+impl Popup for TextPopup {
+	fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
+		let block = utils::popup::block().title(self.title);
+		let list = (self.inner)(queue);
+
+		self.update_scroll(area, &list);
+
+		let par = if self.do_scroll {
+			Paragraph::new(list).block(block).scroll((self.pos, 0))
+		} else {
+			Paragraph::new(list).block(block)
+		};
+
+		frame.render_widget(Clear, area);
+		frame.render_widget(par, area);
+	}
+
+	fn change_track(&mut self, _queue: &Queue) {
 		self.pos = 0;
 	}
 
-	pub fn up(&mut self) {
+	fn up(&mut self) {
 		if self.do_scroll {
 			let pos = self.pos.saturating_sub(1);
 			self.pos = pos;
 		}
 	}
 
-	pub fn down(&mut self) {
+	fn down(&mut self) {
 		if self.do_scroll {
 			let pos = u16::min(self.scroll_amt, self.pos + 1);
 			self.pos = pos;
@@ -89,20 +88,11 @@ impl<T: PopupTrait> Popup<T> {
 	}
 }
 
-pub trait PopupTrait {
-	fn list<'s>(&self, state: &'s State) -> Vec<Line<'s>>;
-
-	fn title(&self) -> &'static str;
-}
-
-#[derive(Debug, Default)]
-pub struct Lyrics;
-
-impl PopupTrait for Lyrics {
-	fn list<'s>(&self, state: &'s State) -> Vec<Line<'s>> {
+pub fn lyrics() -> TextPopup {
+	TextPopup::new(" lyrics ", |state| {
 		let dimmed = Style::default().dim().italic();
 
-		if let Some(track) = state.track.as_ref() {
+		if let Some(track) = state.track() {
 			if let Some(lyrics) = track.lyrics() {
 				lyrics.lines().map(Line::from).collect()
 			} else {
@@ -111,20 +101,13 @@ impl PopupTrait for Lyrics {
 		} else {
 			vec![utils::widgets::line("no track playing", dimmed)]
 		}
-	}
-
-	fn title(&self) -> &'static str {
-		" lyrics "
-	}
+	})
 }
 
-#[derive(Debug, Default)]
-pub struct Tags;
-
-impl PopupTrait for Tags {
-	fn list<'s>(&self, state: &'s State) -> Vec<Line<'s>> {
+pub fn tags() -> TextPopup {
+	TextPopup::new(" tags ", |state| {
 		let dimmed = Style::default().dim().italic();
-		if let Some(track) = state.track.as_ref() {
+		if let Some(track) = state.track() {
 			let underline = Style::default().underlined();
 
 			let title = track
@@ -161,11 +144,7 @@ impl PopupTrait for Tags {
 		} else {
 			vec![utils::widgets::line("no track playing", dimmed)]
 		}
-	}
-
-	fn title(&self) -> &'static str {
-		" tags "
-	}
+	})
 }
 
 #[derive(Debug)]
@@ -188,8 +167,26 @@ impl Tracks {
 			page: None,
 		}
 	}
+}
 
-	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
+impl Tracks {
+	fn items(queue: &Queue) -> Vec<ListItem<'_>> {
+		queue
+			.tracks()
+			.iter()
+			.map(|track| track.line(queue))
+			.map(ListItem::new)
+			.collect()
+	}
+
+	fn offset(&self) -> usize {
+		self.page
+			.map_or(usize::MAX, |page| self.len.saturating_sub(page))
+	}
+}
+
+impl Popup for Tracks {
+	fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
 		let block = utils::popup::block().title(" tracks ");
 		let inner = block.inner(area);
 		let (title_area, list_area) = utils::popup::double_layout(inner);
@@ -220,33 +217,20 @@ impl Tracks {
 		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
-	fn items(queue: &Queue) -> Vec<ListItem<'_>> {
-		queue
-			.tracks()
-			.iter()
-			.map(|track| track.line(queue))
-			.map(ListItem::new)
-			.collect()
-	}
-
-	fn offset(&self) -> usize {
-		self.page
-			.map_or(usize::MAX, |page| self.len.saturating_sub(page))
-	}
-
-	pub fn reset(&mut self, queue: &Queue) {
-		self.state.select(Some(0));
-		self.len = queue.tracks().len();
-	}
-
-	pub fn select(&mut self, idx: usize) {
-		self.state.select(Some(idx));
+	fn change_track(&mut self, queue: &Queue) {
+		let Some(index) = queue.index() else { return };
+		self.state.select(Some(index));
 
 		let offset = self.offset();
 		*self.state.offset_mut() = offset;
 	}
 
-	pub fn down(&mut self) {
+	fn change_queue(&mut self, queue: &Queue) {
+		self.state.select(Some(0));
+		self.len = queue.tracks().len();
+	}
+
+	fn down(&mut self) {
 		let max = self.len.saturating_sub(1);
 		let idx = self
 			.state
@@ -255,7 +239,7 @@ impl Tracks {
 		self.state.select(idx);
 	}
 
-	pub fn up(&mut self) {
+	fn up(&mut self) {
 		let idx = self.state.selected().map(|i| {
 			if i == 0 {
 				self.len.saturating_sub(1)
@@ -266,7 +250,7 @@ impl Tracks {
 		self.state.select(idx);
 	}
 
-	pub fn page_down(&mut self) {
+	fn pg_down(&mut self) {
 		if let Some(page) = self.page {
 			let idx = self
 				.state
@@ -280,7 +264,7 @@ impl Tracks {
 		}
 	}
 
-	pub fn page_up(&mut self) {
+	fn pg_up(&mut self) {
 		if let Some(page) = self.page {
 			let idx = self.state.selected().map(|i| i.saturating_sub(page));
 			self.state.select(idx);
@@ -288,18 +272,18 @@ impl Tracks {
 		}
 	}
 
-	pub fn home(&mut self) {
+	fn home(&mut self) {
 		self.state.select(Some(0));
 		*self.state.offset_mut() = 0;
 	}
 
-	pub fn end(&mut self) {
+	fn end(&mut self) {
 		let len = self.len.saturating_sub(1);
 		self.state.select(Some(len));
 		*self.state.offset_mut() = self.offset();
 	}
 
-	pub fn enter(&self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+	fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let idx = self.state.selected().expect("state should always be Some");
 		queue.select_idx(idx, player)
 	}
@@ -348,7 +332,43 @@ impl Lists {
 		}
 	}
 
-	pub fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
+	fn len(&self) -> usize {
+		if let Some(list) = &self.list {
+			list.children().len()
+		} else {
+			self.lists.len()
+		}
+	}
+
+	fn offset(&self) -> usize {
+		self.page
+			.map_or(usize::MAX, |page| self.len().saturating_sub(page))
+	}
+
+	fn curr(&self) -> ListType<'_> {
+		if let Some(list) = &self.list {
+			let children = list.children();
+			let idx = self.state.selected().expect("state should always be Some");
+
+			let child = children[idx].clone();
+			ListType::Child(child, list)
+		} else {
+			let idx = self.state.selected().expect("state should always be Some");
+			let list = &self.lists[idx];
+			ListType::List(list)
+		}
+	}
+
+	/// overwrites `self.list` and sets the index for `self.state`
+	fn set(&mut self, list: Option<List>, idx: usize) {
+		self.list = list;
+		self.state.select(Some(idx));
+		*self.state.offset_mut() = self.offset();
+	}
+}
+
+impl Popup for Lists {
+	fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue) {
 		let children = self.list.as_ref().map(|list| list.children());
 		let items = if let Some(children) = &children {
 			lists_list(children, queue)
@@ -384,20 +404,8 @@ impl Lists {
 		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
-	fn len(&self) -> usize {
-		if let Some(list) = &self.list {
-			list.children().len()
-		} else {
-			self.lists.len()
-		}
-	}
-
-	fn offset(&self) -> usize {
-		self.page
-			.map_or(usize::MAX, |page| self.len().saturating_sub(page))
-	}
-
-	pub fn select(&mut self, track: &Track) {
+	fn change_track(&mut self, queue: &Queue) {
+		let Some(track) = queue.track() else { return };
 		if let Some(list) = &self.list {
 			let children = list.children();
 			let idx = children.iter().position(|child| child == track);
@@ -408,7 +416,7 @@ impl Lists {
 		}
 	}
 
-	pub fn down(&mut self) {
+	fn down(&mut self) {
 		let max = self.len().saturating_sub(1);
 		let idx = self
 			.state
@@ -418,7 +426,7 @@ impl Lists {
 		self.state.select(idx);
 	}
 
-	pub fn up(&mut self) {
+	fn up(&mut self) {
 		let idx = self.state.selected().map(|i| {
 			if i == 0 {
 				self.len().saturating_sub(1)
@@ -430,7 +438,7 @@ impl Lists {
 		self.state.select(idx);
 	}
 
-	pub fn page_down(&mut self) {
+	fn pg_down(&mut self) {
 		if let Some(page) = self.page {
 			let idx = self
 				.state
@@ -444,7 +452,7 @@ impl Lists {
 		}
 	}
 
-	pub fn page_up(&mut self) {
+	fn pg_up(&mut self) {
 		if let Some(page) = self.page {
 			let idx = self.state.selected().map(|i| i.saturating_sub(page));
 			self.state.select(idx);
@@ -452,39 +460,18 @@ impl Lists {
 		}
 	}
 
-	pub fn home(&mut self) {
+	fn home(&mut self) {
 		self.state.select(Some(0));
 		*self.state.offset_mut() = 0;
 	}
 
-	pub fn end(&mut self) {
+	fn end(&mut self) {
 		let len = self.len().saturating_sub(1);
 		self.state.select(Some(len));
 		*self.state.offset_mut() = self.offset();
 	}
 
-	fn curr(&self) -> ListType<'_> {
-		if let Some(list) = &self.list {
-			let children = list.children();
-			let idx = self.state.selected().expect("state should always be Some");
-
-			let child = children[idx].clone();
-			ListType::Child(child, list)
-		} else {
-			let idx = self.state.selected().expect("state should always be Some");
-			let list = &self.lists[idx];
-			ListType::List(list)
-		}
-	}
-
-	/// overwrites `self.list` and sets the index for `self.state`
-	fn set(&mut self, list: Option<List>, idx: usize) {
-		self.list = list;
-		self.state.select(Some(idx));
-		*self.state.offset_mut() = self.offset();
-	}
-
-	pub fn right(&mut self) {
+	fn right(&mut self) {
 		let curr = self.curr();
 
 		match curr {
@@ -501,7 +488,7 @@ impl Lists {
 		}
 	}
 
-	pub fn left(&mut self) {
+	fn left(&mut self) {
 		if let Some(list) = self.list.take() {
 			if list.has_parent() {
 				let (idx, parent) = list.into_parent().unwrap();
@@ -513,7 +500,7 @@ impl Lists {
 		}
 	}
 
-	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+	fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let curr = self.curr();
 
 		match curr {
@@ -535,7 +522,7 @@ impl Lists {
 		Ok(())
 	}
 
-	pub fn space(&self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+	fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let curr = self.curr();
 
 		match curr {

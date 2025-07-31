@@ -1,4 +1,4 @@
-use self::popup::{Lists, Lyrics, Popup, Tags, Tracks};
+use self::popup::{Lists, Tracks};
 use crate::{
 	config::Config,
 	player::Player,
@@ -6,35 +6,79 @@ use crate::{
 	state::State,
 };
 use ratatui::{Frame, layout::Rect};
+use std::fmt::Debug;
 
 mod popup;
 pub mod utils;
 mod window;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Popups {
-	Tracks,
-	Lists,
-	Tags,
-	Lyrics,
+trait Popup {
+	fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue);
+
+	fn change_track(&mut self, queue: &Queue);
+
+	fn change_queue(&mut self, queue: &Queue) {
+		let _ = queue;
+	}
+
+	fn up(&mut self);
+
+	fn down(&mut self);
+
+	fn left(&mut self) {}
+
+	fn right(&mut self) {}
+
+	fn pg_up(&mut self) {}
+
+	fn pg_down(&mut self) {}
+
+	fn home(&mut self) {}
+
+	fn end(&mut self) {}
+
+	fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+		let _ = (player, queue);
+		Ok(())
+	}
+
+	fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+		let _ = (player, queue);
+		Ok(())
+	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PopupType {
+	Tags = 0,
+	Lyrics = 1,
+	Tracks = 2,
+	Lists = 3,
+}
+
 pub struct Ui {
-	tags: Popup<Tags>,
-	lyrics: Popup<Lyrics>,
-	tracks: Tracks,
-	lists: Lists,
-	pub popup: Option<Popups>,
+	popups: [Box<dyn Popup>; 4],
+	popup: Option<PopupType>,
+}
+
+impl Debug for Ui {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Ui")
+			.field("popups", &[..])
+			.field("popup", &self.popup)
+			.finish()
+	}
 }
 
 impl Ui {
 	pub fn new(queue: &Queue, config: &Config) -> Self {
 		Ui {
-			tags: Popup::<Tags>::default(),
-			lyrics: Popup::<Lyrics>::default(),
-			tracks: Tracks::new(queue),
-			lists: Lists::new(config, queue),
+			popups: [
+				Box::new(self::popup::tags()),
+				Box::new(self::popup::lyrics()),
+				Box::new(Tracks::new(queue)),
+				Box::new(Lists::new(config, queue)),
+			],
 			popup: None,
 		}
 	}
@@ -52,18 +96,9 @@ impl Ui {
 		window::main(frame, window, state);
 		window::seek(frame, seek, state);
 
-		self.popup(frame, window, state, queue);
-	}
-
-	// todo make generic maybe ?
-	fn popup(&mut self, frame: &mut Frame, main: Rect, state: &State, queue: &Queue) {
-		let area = window::popup(main);
-		match self.popup {
-			Some(Popups::Tags) => self.tags.draw(frame, area, state),
-			Some(Popups::Lyrics) => self.lyrics.draw(frame, area, state),
-			Some(Popups::Tracks) => self.tracks.draw(frame, area, queue),
-			Some(Popups::Lists) => self.lists.draw(frame, area, queue),
-			None => {}
+		if let Some(popup) = self.popup {
+			let area = window::popup(window);
+			self.popups[popup as usize].draw(frame, area, queue);
 		}
 	}
 
@@ -71,142 +106,97 @@ impl Ui {
 		self.popup.is_some()
 	}
 
-	pub fn reset(&mut self, queue: &Queue) {
-		self.tags.reset();
-		self.lyrics.reset();
-
-		if !matches!(self.popup, Some(Popups::Tracks))
-			&& let Some(idx) = queue.index()
-		{
-			self.tracks.select(idx);
-		}
-
-		if !matches!(self.popup, Some(Popups::Lists))
-			&& let Some(track) = queue.track()
-		{
-			self.lists.select(track);
-		}
+	pub fn is_selectable(&self) -> bool {
+		matches!(self.popup, Some(PopupType::Tracks | PopupType::Lists))
 	}
 
-	pub fn reset_q(&mut self, queue: &Queue) {
-		self.tracks.reset(queue);
+	pub fn change_track(&mut self, queue: &Queue) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].change_track(queue);
 	}
 
-	pub fn lists(&mut self) {
-		if self.popup == Some(Popups::Lists) {
+	pub fn change_queue(&mut self, queue: &Queue) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].change_queue(queue);
+	}
+
+	fn toggle(&mut self, popup: PopupType) {
+		if self.popup == Some(popup) {
 			self.popup = None;
 		} else {
-			self.popup = Some(Popups::Lists);
-		}
-	}
-
-	pub fn tracks(&mut self) {
-		if self.popup == Some(Popups::Tracks) {
-			self.popup = None;
-		} else {
-			self.popup = Some(Popups::Tracks);
+			self.popup = Some(popup);
 		}
 	}
 
 	pub fn tags(&mut self) {
-		if self.popup == Some(Popups::Tags) {
-			self.popup = None;
-		} else {
-			self.popup = Some(Popups::Tags);
-		}
+		self.toggle(PopupType::Tags);
 	}
 
 	pub fn lyrics(&mut self) {
-		if self.popup == Some(Popups::Lyrics) {
-			self.popup = None;
-		} else {
-			self.popup = Some(Popups::Lyrics);
-		}
+		self.toggle(PopupType::Lyrics);
+	}
+
+	pub fn tracks(&mut self) {
+		self.toggle(PopupType::Tracks);
+	}
+
+	pub fn lists(&mut self) {
+		self.toggle(PopupType::Lists);
 	}
 
 	pub fn up(&mut self) {
-		match self.popup {
-			Some(Popups::Tags) => self.tags.up(),
-			Some(Popups::Tracks) => self.tracks.up(),
-			Some(Popups::Lyrics) => self.lyrics.up(),
-			Some(Popups::Lists) => self.lists.up(),
-			None => {}
-		}
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].up();
 	}
 
 	pub fn down(&mut self) {
-		match self.popup {
-			Some(Popups::Tags) => self.tags.down(),
-			Some(Popups::Tracks) => self.tracks.down(),
-			Some(Popups::Lyrics) => self.lyrics.down(),
-			Some(Popups::Lists) => self.lists.down(),
-			None => {}
-		}
-	}
-
-	pub fn pg_up(&mut self) {
-		match self.popup {
-			Some(Popups::Tracks) => self.tracks.page_up(),
-			Some(Popups::Lists) => self.lists.page_up(),
-			_ => {}
-		}
-	}
-
-	pub fn pg_down(&mut self) {
-		match self.popup {
-			Some(Popups::Tracks) => self.tracks.page_down(),
-			Some(Popups::Lists) => self.lists.page_down(),
-			_ => {}
-		}
-	}
-
-	pub fn home(&mut self) {
-		match self.popup {
-			Some(Popups::Tracks) => self.tracks.home(),
-			Some(Popups::Lists) => self.lists.home(),
-			_ => {}
-		}
-	}
-
-	pub fn end(&mut self) {
-		match self.popup {
-			Some(Popups::Tracks) => self.tracks.end(),
-			Some(Popups::Lists) => self.lists.end(),
-			_ => {}
-		}
-	}
-
-	pub fn right(&mut self) {
-		if self.popup == Some(Popups::Lists) {
-			self.lists.right();
-		}
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].down();
 	}
 
 	pub fn left(&mut self) {
-		if self.popup == Some(Popups::Lists) {
-			self.lists.left();
-		}
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].left();
 	}
 
-	pub fn backspace(&mut self) {
-		if self.popup == Some(Popups::Lists) {
-			self.lists.left();
-		}
+	pub fn right(&mut self) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].right();
+	}
+
+	pub fn pg_up(&mut self) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].pg_up();
+	}
+
+	pub fn pg_down(&mut self) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].pg_down();
+	}
+
+	pub fn home(&mut self) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].home();
+	}
+
+	pub fn end(&mut self) {
+		let Some(popup) = self.popup else { return };
+		self.popups[popup as usize].end();
 	}
 
 	pub fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
-		match self.popup {
-			Some(Popups::Tracks) => self.tracks.enter(player, queue),
-			Some(Popups::Lists) => self.lists.enter(player, queue),
-			_ => Ok(()),
+		if let Some(popup) = self.popup {
+			self.popups[popup as usize].enter(player, queue)
+		} else {
+			Ok(())
 		}
 	}
 
 	pub fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
-		match self.popup {
-			Some(Popups::Tracks) => self.tracks.enter(player, queue),
-			Some(Popups::Lists) => self.lists.space(player, queue),
-			_ => Ok(()),
+		if let Some(popup) = self.popup {
+			self.popups[popup as usize].space(player, queue)
+		} else {
+			Ok(())
 		}
 	}
 

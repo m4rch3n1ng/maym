@@ -3,7 +3,7 @@ use self::{
 	player::Player,
 	queue::{Queue, QueueError},
 	state::{State, StateError},
-	ui::{Popups, Ui},
+	ui::Ui,
 };
 #[cfg(feature = "mpris")]
 use self::{
@@ -217,19 +217,20 @@ impl Application {
 			(KeyCode::PageUp, KeyModifiers::NONE) => self.ui.pg_up(),
 			(KeyCode::Home, KeyModifiers::NONE) => self.ui.home(),
 			(KeyCode::End, KeyModifiers::NONE) => self.ui.end(),
-			(KeyCode::Backspace, KeyModifiers::NONE) => self.ui.backspace(),
+			(KeyCode::Backspace, KeyModifiers::NONE) => self.ui.left(),
 			(KeyCode::Enter, KeyModifiers::NONE) => {
 				self.ui.enter(&mut self.player, &mut self.queue)?;
 				*skip_done = true;
 			}
 			// ctx
-			(KeyCode::Char(' '), KeyModifiers::NONE) => match self.ui.popup {
-				Some(Popups::Lists | Popups::Tracks) => {
+			(KeyCode::Char(' '), KeyModifiers::NONE) => {
+				if self.ui.is_selectable() {
 					self.ui.space(&mut self.player, &mut self.queue)?;
 					*skip_done = true;
+				} else {
+					self.player.toggle();
 				}
-				_ => self.player.toggle(),
-			},
+			}
 			(KeyCode::Right, KeyModifiers::NONE) => {
 				if self.ui.is_popup() {
 					self.ui.right();

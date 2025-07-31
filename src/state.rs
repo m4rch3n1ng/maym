@@ -136,12 +136,12 @@ impl State {
 
 		let q = queue.path();
 		if self.queue.as_deref() != q {
-			ui.reset_q(queue);
+			ui.change_queue(queue);
 			self.queue = q.map(ToOwned::to_owned);
 		}
 
 		if self.track.as_ref() != queue.track() {
-			ui.reset(queue);
+			ui.change_track(queue);
 			self.track = queue.track().cloned();
 			#[cfg(feature = "mpris")]
 			mpris.update(MprisUpdate::Metadata);
