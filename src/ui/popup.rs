@@ -1,9 +1,8 @@
-use super::utils;
+use super::{Popup, utils};
 use crate::{
 	config::{Child, Config, List},
 	player::Player,
 	queue::{Queue, QueueError},
-	ui::Popup,
 };
 use ratatui::{
 	Frame,

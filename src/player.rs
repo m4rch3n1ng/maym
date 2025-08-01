@@ -1,15 +1,15 @@
-use crate::queue::{Queue, Track};
-use crate::state::State;
+use crate::{
+	queue::{Queue, Track},
+	state::State,
+};
 use cpal::{
 	StreamConfig,
 	traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use creek::read::ReadError;
-use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder};
+use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder, read::ReadError};
 use rtrb::{Consumer, Producer, RingBuffer};
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
-use std::convert::identity;
-use std::{collections::VecDeque, fmt::Debug, time::Duration};
+use std::{collections::VecDeque, convert::identity, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaybackStatus {
