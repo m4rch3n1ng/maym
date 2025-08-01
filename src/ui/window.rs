@@ -2,13 +2,11 @@ use super::utils;
 use crate::state::State;
 use ratatui::{
 	Frame,
-	layout::{Alignment, Constraint, Direction, Layout, Rect},
+	layout::{Constraint, Direction, Layout, Rect},
 	style::{Style, Stylize},
-	symbols,
-	text::{Line, Span},
-	widgets::{Block, Borders, LineGauge, Padding, Paragraph},
+	text::Line,
+	widgets::{Block, Borders, Padding, Paragraph},
 };
-use std::time::Duration;
 
 pub fn main(frame: &mut Frame, area: Rect, state: &State) {
 	let bold = Style::default().bold();
@@ -61,8 +59,8 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 			unreachable!();
 		};
 
-		self::seek_progress(frame, (elapsed, duration), state, seek);
-		self::seek_info(frame, state, info);
+		self::seek::progress(frame, (elapsed, duration), state, seek);
+		self::seek::info(frame, state, info);
 	} else {
 		let dimmed = Style::default().dim();
 		let dim = dimmed.italic();
@@ -74,87 +72,101 @@ pub fn seek(frame: &mut Frame, area: Rect, state: &State) {
 	}
 }
 
-fn seek_progress(
-	frame: &mut Frame,
-	(elapsed, duration): (Duration, Duration),
-	state: &State,
-	area: Rect,
-) {
-	let fmt_elapsed = utils::fmt_duration(elapsed);
-	let fmt_duration = utils::fmt_duration(duration);
-	let text = Line::from(vec![
-		if state.paused {
-			Span::styled(&fmt_elapsed, Style::default().dim())
+mod seek {
+	use super::utils;
+	use crate::state::State;
+	use ratatui::{
+		Frame,
+		layout::{Alignment, Constraint, Direction, Layout, Rect},
+		style::{Style, Stylize},
+		symbols,
+		text::{Line, Span},
+		widgets::{Block, LineGauge, Padding, Paragraph},
+	};
+	use std::time::Duration;
+
+	pub fn progress(
+		frame: &mut Frame,
+		(elapsed, duration): (Duration, Duration),
+		state: &State,
+		area: Rect,
+	) {
+		let fmt_elapsed = utils::fmt_duration(elapsed);
+		let fmt_duration = utils::fmt_duration(duration);
+		let text = Line::from(vec![
+			if state.paused {
+				Span::styled(&fmt_elapsed, Style::default().dim())
+			} else {
+				Span::raw(&fmt_elapsed)
+			},
+			Span::raw(" / "),
+			Span::raw(&fmt_duration),
+		]);
+
+		let len = fmt_elapsed.len() + 3 + fmt_duration.len() + 4;
+		let len = u16::try_from(len).unwrap();
+		let chunks = Layout::default()
+			.direction(Direction::Horizontal)
+			.constraints([Constraint::Max(len), Constraint::Min(0)])
+			.split(area);
+
+		let text_area = chunks[0];
+		let block = Block::default().padding(Padding::new(2, 0, 0, 0));
+		let par = Paragraph::new(text).block(block);
+		frame.render_widget(par, text_area);
+
+		let gauge_area = chunks[1];
+		let progress = elapsed.as_secs_f64() / duration.as_secs_f64();
+		let block = Block::default().padding(Padding::new(0, 2, 0, 0));
+
+		let (filled, unfilled) = utils::style::gauge_style(state.paused);
+		let gauge = LineGauge::default()
+			.block(block)
+			.label("")
+			.filled_style(filled)
+			.unfilled_style(unfilled)
+			.line_set(symbols::line::THICK)
+			.ratio(progress);
+		frame.render_widget(gauge, gauge_area);
+	}
+
+	pub fn info(frame: &mut Frame, state: &State, area: Rect) {
+		let fmt_vol = format!(" {: >3}%", state.volume);
+		let (vol_str, vol) = if state.muted {
+			(
+				Span::styled("[mute]", utils::style::accent()),
+				Span::styled(fmt_vol, Style::default().dim()),
+			)
 		} else {
-			Span::raw(&fmt_elapsed)
-		},
-		Span::raw(" / "),
-		Span::raw(&fmt_duration),
-	]);
+			(Span::raw("[vol]:"), Span::raw(fmt_vol))
+		};
 
-	let len = fmt_elapsed.len() + 3 + fmt_duration.len() + 4;
-	let len = u16::try_from(len).unwrap();
-	let chunks = Layout::default()
-		.direction(Direction::Horizontal)
-		.constraints([Constraint::Max(len), Constraint::Min(0)])
-		.split(area);
+		let paused = if state.paused {
+			Span::styled("[stop]", Style::default().dim())
+		} else {
+			Span::styled("[play]", utils::style::accent())
+		};
 
-	let text_area = chunks[0];
-	let block = Block::default().padding(Padding::new(2, 0, 0, 0));
-	let par = Paragraph::new(text).block(block);
-	frame.render_widget(par, text_area);
+		let shuffle = if state.shuffle {
+			Span::styled("[shuffle]", utils::style::accent())
+		} else {
+			Span::styled("[no shuffle]", Style::default().dim())
+		};
 
-	let gauge_area = chunks[1];
-	let progress = elapsed.as_secs_f64() / duration.as_secs_f64();
-	let block = Block::default().padding(Padding::new(0, 2, 0, 0));
-
-	let (filled, unfilled) = utils::style::gauge_style(state.paused);
-	let gauge = LineGauge::default()
-		.block(block)
-		.label("")
-		.filled_style(filled)
-		.unfilled_style(unfilled)
-		.line_set(symbols::line::THICK)
-		.ratio(progress);
-	frame.render_widget(gauge, gauge_area);
-}
-
-fn seek_info(frame: &mut Frame, state: &State, area: Rect) {
-	let fmt_vol = format!(" {: >3}%", state.volume);
-	let (vol_str, vol) = if state.muted {
-		(
-			Span::styled("[mute]", utils::style::accent()),
-			Span::styled(fmt_vol, Style::default().dim()),
-		)
-	} else {
-		(Span::raw("[vol]:"), Span::raw(fmt_vol))
-	};
-
-	let paused = if state.paused {
-		Span::styled("[stop]", Style::default().dim())
-	} else {
-		Span::styled("[play]", utils::style::accent())
-	};
-
-	let shuffle = if state.shuffle {
-		Span::styled("[shuffle]", utils::style::accent())
-	} else {
-		Span::styled("[no shuffle]", Style::default().dim())
-	};
-
-	let block = Block::default().padding(Padding::new(2, 2, 0, 0));
-	let line = Line::from(vec![
-		shuffle,
-		Span::raw(" ~ "),
-		paused,
-		Span::raw(" ~ "),
-		vol_str,
-		vol,
-	]);
-	let par = Paragraph::new(line)
-		.block(block)
-		.alignment(Alignment::Right);
-	frame.render_widget(par, area);
+		let block = Block::default().padding(Padding::new(2, 2, 0, 0));
+		let line = Line::from(vec![
+			shuffle,
+			Span::raw(" ~ "),
+			paused,
+			Span::raw(" ~ "),
+			vol_str,
+			vol,
+		]);
+		let par = Paragraph::new(line)
+			.block(block)
+			.alignment(Alignment::Right);
+		frame.render_widget(par, area);
+	}
 }
 
 pub fn layout(size: Rect) -> (Rect, Rect) {
