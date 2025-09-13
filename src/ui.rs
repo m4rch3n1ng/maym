@@ -15,7 +15,7 @@ mod window;
 trait Popup {
 	fn draw(&mut self, frame: &mut Frame, area: Rect, queue: &Queue);
 
-	fn change_track(&mut self, queue: &Queue);
+	fn change_track(&mut self, active: bool, queue: &Queue);
 
 	fn change_queue(&mut self, queue: &Queue) {
 		let _ = queue;
@@ -113,13 +113,16 @@ impl Ui {
 	}
 
 	pub fn change_track(&mut self, queue: &Queue) {
-		let Some(popup) = self.popup else { return };
-		self.popups[popup as usize].change_track(queue);
+		for (idx, popup) in self.popups.iter_mut().enumerate() {
+			let active = self.popup.is_some_and(|popup| popup as usize == idx);
+			popup.change_track(active, queue);
+		}
 	}
 
 	pub fn change_queue(&mut self, queue: &Queue) {
-		let Some(popup) = self.popup else { return };
-		self.popups[popup as usize].change_queue(queue);
+		for popup in &mut self.popups {
+			popup.change_queue(queue);
+		}
 	}
 
 	fn toggle(&mut self, popup: PopupType) {

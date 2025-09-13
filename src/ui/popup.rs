@@ -52,7 +52,7 @@ impl Popup for TextPopup {
 		frame.render_widget(par, area);
 	}
 
-	fn change_track(&mut self, _queue: &Queue) {
+	fn change_track(&mut self, _active: bool, _queue: &Queue) {
 		self.scroll = 0;
 	}
 
@@ -202,7 +202,11 @@ impl Popup for Tracks {
 		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
-	fn change_track(&mut self, queue: &Queue) {
+	fn change_track(&mut self, active: bool, queue: &Queue) {
+		if active {
+			return;
+		}
+
 		let Some(index) = queue.index() else { return };
 		self.state.select(Some(index));
 
@@ -271,6 +275,10 @@ impl Popup for Tracks {
 	fn enter(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
 		let idx = self.state.selected().expect("state should always be Some");
 		queue.select_idx(idx, player)
+	}
+
+	fn space(&mut self, player: &mut Player, queue: &mut Queue) -> Result<(), QueueError> {
+		self.enter(player, queue)
 	}
 }
 
@@ -389,7 +397,11 @@ impl Popup for Lists {
 		frame.render_stateful_widget(list, list_area, &mut self.state);
 	}
 
-	fn change_track(&mut self, queue: &Queue) {
+	fn change_track(&mut self, active: bool, queue: &Queue) {
+		if active {
+			return;
+		}
+
 		let Some(track) = queue.track() else { return };
 		if let Some(list) = &self.list {
 			let children = list.children();
