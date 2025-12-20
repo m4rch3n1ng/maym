@@ -11,7 +11,7 @@ use self::{
 	player::PlaybackStatus,
 };
 use color_eyre::eyre::Context;
-use crossterm::{
+use ratatui::crossterm::{
 	cursor,
 	event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
 	execute, terminal,

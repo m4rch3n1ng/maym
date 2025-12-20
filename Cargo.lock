@@ -988,7 +988,6 @@ dependencies = [
  "color-eyre",
  "cpal",
  "creek",
- "crossterm",
  "dirs",
  "id3",
  "rand",
