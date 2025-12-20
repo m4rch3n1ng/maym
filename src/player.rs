@@ -279,7 +279,10 @@ impl Player {
 			.build_output_stream(
 				&stream_config,
 				move |data: &mut [f32], _: &cpal::OutputCallbackInfo| process.process(data),
-				|err| panic!("an error occured {err:?}"),
+				|err| match err {
+					cpal::StreamError::BufferUnderrun => {}
+					_ => panic!("an error occured {err:?}"),
+				},
 				None,
 			)
 			.unwrap();
