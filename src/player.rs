@@ -89,7 +89,7 @@ impl Process {
 					let duration = Process::playhead(&stream);
 					let _ = self.to_main_tx.push(FromProcess::Playhead(duration));
 
-					let cpal_sample_rate = self.stream_config.sample_rate.0;
+					let cpal_sample_rate = self.stream_config.sample_rate;
 					let stream_sample_rate = stream.info().sample_rate.unwrap();
 
 					if cpal_sample_rate != stream_sample_rate {
