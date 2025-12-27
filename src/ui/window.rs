@@ -3,7 +3,7 @@ use crate::state::State;
 use ratatui::{
 	Frame,
 	layout::{Constraint, Direction, Layout, Rect},
-	style::{Style, Stylize},
+	style::Style,
 	text::Line,
 	widgets::{Block, Borders, Padding, Paragraph},
 };
@@ -78,7 +78,7 @@ mod seek {
 	use ratatui::{
 		Frame,
 		layout::{Alignment, Constraint, Direction, Layout, Rect},
-		style::{Style, Stylize},
+		style::Style,
 		symbols,
 		text::{Line, Span},
 		widgets::{Block, LineGauge, Padding, Paragraph},
@@ -125,7 +125,8 @@ mod seek {
 			.label("")
 			.filled_style(filled)
 			.unfilled_style(unfilled)
-			.line_set(symbols::line::THICK)
+			.filled_symbol(symbols::line::THICK.horizontal)
+			.unfilled_symbol(symbols::line::THICK.horizontal)
 			.ratio(progress);
 		frame.render_widget(gauge, gauge_area);
 	}

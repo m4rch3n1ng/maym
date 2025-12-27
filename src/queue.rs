@@ -8,7 +8,7 @@ use crate::{
 use arrayvec::ArrayVec;
 use camino::{Utf8Path, Utf8PathBuf};
 use id3::{Tag, TagLike};
-use ratatui::{style::Stylize, text::Line};
+use ratatui::text::Line;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
 	fmt::{Debug, Display},

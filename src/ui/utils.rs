@@ -22,7 +22,7 @@ pub mod widgets {
 
 pub mod style {
 	use crate::config::Config;
-	use ratatui::style::{Color, Style, Stylize};
+	use ratatui::style::{Color, Style};
 	use std::sync::OnceLock;
 
 	static ACCENT: OnceLock<Color> = OnceLock::new();
@@ -50,7 +50,7 @@ pub mod style {
 pub mod popup {
 	use ratatui::{
 		layout::{Constraint, Direction, Layout, Rect},
-		style::{Style, Stylize},
+		style::Style,
 		widgets::{Block, Borders, Padding},
 	};
 

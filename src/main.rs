@@ -11,14 +11,11 @@ use self::{
 	player::PlaybackStatus,
 };
 use color_eyre::eyre::Context;
-use ratatui::crossterm::{
-	cursor,
-	event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
-	execute, terminal,
-};
 use ratatui::{
-	Terminal,
-	backend::{Backend, CrosstermBackend},
+	DefaultTerminal,
+	crossterm::event::{
+		self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind,
+	},
 };
 #[cfg(feature = "mpris")]
 use std::sync::{Arc, Mutex};
@@ -90,7 +87,7 @@ impl Application {
 		Ok(app)
 	}
 
-	pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), MusicError> {
+	pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<(), MusicError> {
 		let mut last = Instant::now();
 		let mut skip_done = false;
 		let mut ticks = 0;
@@ -263,37 +260,10 @@ impl Application {
 	}
 
 	pub fn start(&mut self) -> color_eyre::Result<()> {
-		let mut stdout = std::io::stdout();
-
-		terminal::enable_raw_mode()?;
-		execute!(
-			stdout,
-			terminal::EnterAlternateScreen,
-			event::EnableMouseCapture
-		)?;
-
-		let backend = CrosstermBackend::new(&stdout);
-		let mut terminal = Terminal::new(backend)?;
-
-		let result = self.run(&mut terminal);
-		match result {
+		match ratatui::run(|terminal| self.run(terminal)) {
 			Err(MusicError::Quit) | Ok(()) => Ok(()),
 			Err(err) => Err(color_eyre::Report::from(err)),
 		}
-	}
-}
-
-impl Drop for Application {
-	fn drop(&mut self) {
-		let mut stdout = std::io::stdout();
-
-		let _ = terminal::disable_raw_mode();
-		let _ = execute!(
-			stdout,
-			terminal::LeaveAlternateScreen,
-			event::DisableMouseCapture,
-			cursor::Show,
-		);
 	}
 }
 
@@ -302,16 +272,6 @@ fn install() -> color_eyre::Result<()> {
 
 	let hook = std::panic::take_hook();
 	std::panic::set_hook(Box::new(move |info| {
-		let mut stdout = std::io::stdout();
-
-		let _ = terminal::disable_raw_mode();
-		let _ = execute!(
-			stdout,
-			terminal::LeaveAlternateScreen,
-			event::DisableMouseCapture,
-			cursor::Show,
-		);
-
 		hook(info);
 
 		let thread = std::thread::current();
