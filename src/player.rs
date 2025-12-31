@@ -2,13 +2,14 @@ use crate::{
 	queue::{Queue, Track},
 	state::State,
 };
+use audioadapter_buffers::direct::SequentialSliceOfVecs;
 use cpal::{
 	StreamConfig,
 	traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder, read::ReadError};
 use rtrb::{Consumer, Producer, RingBuffer};
-use rubato::{FastFixedIn, PolynomialDegree, Resampler};
+use rubato::{Async, FixedAsync, PolynomialDegree, Resampler};
 use std::{collections::VecDeque, convert::identity, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +46,7 @@ struct Process {
 	stream: Option<Box<ReadDiskStream<SymphoniaDecoder>>>,
 	buffer: VecDeque<f32>,
 	stream_config: StreamConfig,
-	resampler: Option<FastFixedIn<f32>>,
+	resampler: Option<Async<f32>>,
 	resample_buffer_in: [Vec<f32>; 2],
 	resample_buffer_out: [Vec<f32>; 2],
 
@@ -96,12 +97,13 @@ impl Process {
 						let ratio = f64::from(cpal_sample_rate) / f64::from(stream_sample_rate);
 						let block_size = stream.block_size();
 
-						let resampler = FastFixedIn::<f32>::new(
+						let resampler = Async::<f32>::new_poly(
 							ratio,
 							1.0,
 							PolynomialDegree::Linear,
 							block_size,
 							2,
+							FixedAsync::Input,
 						)
 						.unwrap();
 
@@ -178,26 +180,30 @@ impl Process {
 				if let Some(resampler) = &mut self.resampler {
 					let [in_ch1, in_ch2] = &mut self.resample_buffer_in;
 
-					let ch1 = if ch1.len() < block_size {
-						in_ch1.clear();
-						in_ch1.extend_from_slice(ch1);
-						in_ch1.resize(block_size, 0.0);
-						in_ch1
-					} else {
-						ch1
-					};
+					in_ch1.clear();
+					in_ch1.extend_from_slice(ch1);
+					in_ch1.resize(block_size, 0.0);
 
-					let ch2 = if ch2.len() < block_size {
-						in_ch2.clear();
-						in_ch2.extend_from_slice(ch2);
-						in_ch2.resize(block_size, 0.0);
-						in_ch2
-					} else {
-						ch2
-					};
+					in_ch2.clear();
+					in_ch2.extend_from_slice(ch2);
+					in_ch2.resize(block_size, 0.0);
+
+					let buf_in = SequentialSliceOfVecs::new(
+						&self.resample_buffer_in,
+						resampler.nbr_channels(),
+						resampler.input_frames_next(),
+					)
+					.unwrap();
+
+					let mut buf_out = SequentialSliceOfVecs::new_mut(
+						&mut self.resample_buffer_out,
+						resampler.nbr_channels(),
+						resampler.output_frames_next(),
+					)
+					.unwrap();
 
 					let (_, out_len) = resampler
-						.process_into_buffer(&[ch1, ch2], &mut self.resample_buffer_out, None)
+						.process_into_buffer(&buf_in, &mut buf_out, None)
 						.unwrap();
 
 					let [ch1, ch2] = &self.resample_buffer_out;
