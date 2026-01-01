@@ -278,9 +278,13 @@ impl History {
 		self.index = self.queue.len() - 1;
 	}
 
-	fn clear(&mut self) {
+	fn clear(&mut self, top: Option<usize>) {
 		self.queue.clear();
 		self.index = 0;
+
+		if let Some(value) = top {
+			self.push(value);
+		}
 	}
 
 	fn next(&mut self) -> Option<usize> {
@@ -351,7 +355,7 @@ impl Queue {
 	///
 	/// also clears [`Queue::next`] and [`Queue::last`]
 	pub fn shuffle(&mut self) {
-		self.history.clear();
+		self.history.clear(self.current);
 		self.shuffle = !self.shuffle;
 	}
 
@@ -361,7 +365,7 @@ impl Queue {
 	#[cfg(feature = "mpris")]
 	pub fn set_shuffle(&mut self, shuffle: bool) {
 		if self.shuffle != shuffle {
-			self.history.clear();
+			self.history.clear(self.current);
 			self.shuffle = shuffle;
 		}
 	}
@@ -404,7 +408,7 @@ impl Queue {
 		self.path = Some(path.into());
 		self.tracks = tracks;
 		self.current = None;
-		self.history.clear();
+		self.history.clear(None);
 
 		Ok(())
 	}
@@ -427,7 +431,7 @@ impl Queue {
 
 		self.replace(index, player);
 
-		self.history.clear();
+		self.history.clear(self.current);
 
 		Ok(())
 	}
@@ -447,7 +451,7 @@ impl Queue {
 		self.tracks.get(index).ok_or(QueueError::OutOfBounds)?;
 		self.replace(index, player);
 
-		self.history.clear();
+		self.history.clear(self.current);
 
 		Ok(())
 	}
@@ -741,7 +745,7 @@ mod test {
 
 		queue.shuffle();
 		assert!(!queue.is_shuffle());
-		assert!(queue.history.queue.is_empty());
+		assert_eq!(queue.history.queue.len(), 1);
 
 		Ok(())
 	}
@@ -762,7 +766,7 @@ mod test {
 		queue.select_idx(2, &mut player)?;
 		assert_eq!(queue.track(), Some(&t2));
 
-		assert!(queue.history.queue.is_empty());
+		assert_eq!(queue.history.queue.len(), 1);
 
 		queue.select_idx(1, &mut player)?;
 		assert_eq!(queue.track(), Some(&t1));
@@ -786,7 +790,7 @@ mod test {
 		queue.select_path("mock/list 01/sub 01/track 04.mp3".into(), &mut player)?;
 		assert_eq!(queue.track(), Some(&t4));
 
-		assert!(queue.history.queue.is_empty());
+		assert_eq!(queue.history.queue.len(), 1);
 
 		queue.select_path("mock/list 01/track 00.mp3".into(), &mut player)?;
 		assert_eq!(queue.track(), Some(&t0));
