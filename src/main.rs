@@ -13,8 +13,9 @@ use self::{
 use color_eyre::eyre::Context;
 use ratatui::{
 	DefaultTerminal,
-	crossterm::event::{
-		self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind,
+	crossterm::{
+		event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
+		execute,
 	},
 };
 #[cfg(feature = "mpris")]
@@ -260,10 +261,18 @@ impl Application {
 	}
 
 	pub fn start(&mut self) -> color_eyre::Result<()> {
+		execute!(std::io::stdout(), event::EnableMouseCapture)?;
+
 		match ratatui::run(|terminal| self.run(terminal)) {
 			Err(MusicError::Quit) | Ok(()) => Ok(()),
 			Err(err) => Err(color_eyre::Report::from(err)),
 		}
+	}
+}
+
+impl Drop for Application {
+	fn drop(&mut self) {
+		let _ = execute!(std::io::stdout(), event::EnableMouseCapture);
 	}
 }
 
@@ -273,6 +282,8 @@ fn install() -> color_eyre::Result<()> {
 	let hook = std::panic::take_hook();
 	std::panic::set_hook(Box::new(move |info| {
 		hook(info);
+
+		let _ = execute!(std::io::stdout(), event::DisableMouseCapture);
 
 		let thread = std::thread::current();
 		if thread.name() != Some("main") {
