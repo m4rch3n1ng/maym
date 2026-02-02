@@ -26,7 +26,7 @@ use thiserror::Error;
 
 /// a tui music player
 #[derive(Debug, Parser)]
-#[clap(version, about)]
+#[clap(version = env!("MAYM_VERSION"), about)]
 #[clap(disable_help_flag = true, disable_version_flag = true)]
 #[clap(disable_help_subcommand = true)]
 struct Args {
