@@ -115,8 +115,12 @@ mod seek {
 		let par = Paragraph::new(text).block(block);
 		frame.render_widget(par, text_area);
 
+		let mut progress = (elapsed.as_secs_f64() / duration.as_secs_f64()).clamp(0.0, 1.0);
+		if progress.is_nan() {
+			progress = 0.0;
+		}
+
 		let gauge_area = chunks[1];
-		let progress = elapsed.as_secs_f64() / duration.as_secs_f64();
 		let block = Block::default().padding(Padding::new(0, 2, 0, 0));
 
 		let (filled, unfilled) = utils::style::gauge_style(state.paused);
