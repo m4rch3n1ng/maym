@@ -10,6 +10,7 @@ use self::{
 	mpris::{Mpris, MprisEvent},
 	player::PlaybackStatus,
 };
+use clap::Parser;
 use color_eyre::eyre::Context;
 use ratatui::{
 	DefaultTerminal,
@@ -22,6 +23,20 @@ use ratatui::{
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use thiserror::Error;
+
+/// a tui music player
+#[derive(Debug, Parser)]
+#[clap(version, about)]
+#[clap(disable_help_flag = true, disable_version_flag = true)]
+#[clap(disable_help_subcommand = true)]
+struct Args {
+	/// print help
+	#[arg(long, short, action = clap::ArgAction::Help, global = true)]
+	help: Option<bool>,
+	/// print version
+	#[arg(long, short = 'V', action = clap::ArgAction::Version)]
+	version: Option<bool>,
+}
 
 mod config;
 #[cfg(feature = "mpris")]
@@ -298,6 +313,7 @@ fn install() -> color_eyre::Result<()> {
 fn main() -> color_eyre::Result<()> {
 	install()?;
 
+	let _ = Args::parse();
 	let mut app = Application::new().wrap_err("maym error")?;
 	app.start().wrap_err("maym error")?;
 
