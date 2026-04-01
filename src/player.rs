@@ -2,14 +2,16 @@ use crate::{
 	queue::{Queue, Track},
 	state::State,
 };
-use audioadapter_buffers::direct::SequentialSliceOfVecs;
 use cpal::{
 	StreamConfig,
 	traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use creek::{ReadDiskStream, ReadStreamOptions, SeekMode, SymphoniaDecoder, read::ReadError};
 use rtrb::{Consumer, Producer, RingBuffer};
-use rubato::{Async, FixedAsync, PolynomialDegree, Resampler};
+use rubato::{
+	Async, FixedAsync, PolynomialDegree, Resampler,
+	audioadapter_buffers::direct::{SequentialSliceOfSlices, SequentialSliceOfVecs},
+};
 use std::{collections::VecDeque, convert::identity, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,24 +153,27 @@ impl Process {
 		}
 
 		if let Some(stream) = &mut self.stream {
-			if self.done || !stream.is_ready().is_ok_and(identity) {
-				Self::silence(data);
-				return;
-			}
-
-			if self.status == PlaybackStatus::Paused {
-				Self::silence(data);
+			if self.done
+				|| !stream.is_ready().is_ok_and(identity)
+				|| self.status == PlaybackStatus::Paused
+			{
+				data.fill(0.0);
 				return;
 			}
 
 			while self.buffer.len() < data.len() {
 				let block_size = stream.block_size();
-				let read_data = match stream.read(stream.block_size()) {
+				let read_data = match stream.read(block_size) {
 					Ok(read_data) => read_data,
 					Err(ReadError::EndOfFile) => {
+						let len = self.buffer.len();
+						for sample in &mut data[..len] {
+							*sample = self.buffer.pop_front().unwrap() * self.volume.powi(3);
+						}
+						data[len..].fill(0.0);
+
 						self.done = true;
 						let _ = self.to_main_tx.push(FromProcess::IsDone);
-						Self::silence(data);
 						return;
 					}
 					err @ Err(_) => err.unwrap(),
@@ -180,16 +185,23 @@ impl Process {
 				if let Some(resampler) = &mut self.resampler {
 					let [in_ch1, in_ch2] = &mut self.resample_buffer_in;
 
-					in_ch1.clear();
-					in_ch1.extend_from_slice(ch1);
-					in_ch1.resize(block_size, 0.0);
+					let ch1 = if ch1.len() < block_size {
+						in_ch1[..ch1.len()].copy_from_slice(ch2);
+						in_ch1
+					} else {
+						ch1
+					};
 
-					in_ch2.clear();
-					in_ch2.extend_from_slice(ch2);
-					in_ch2.resize(block_size, 0.0);
+					let ch2 = if ch2.len() < block_size {
+						in_ch2[..ch2.len()].copy_from_slice(ch2);
+						in_ch2
+					} else {
+						ch2
+					};
 
-					let buf_in = SequentialSliceOfVecs::new(
-						&self.resample_buffer_in,
+					let chs = [ch1, ch2];
+					let buf_in = SequentialSliceOfSlices::new(
+						&chs,
 						resampler.nbr_channels(),
 						resampler.input_frames_next(),
 					)
@@ -220,14 +232,8 @@ impl Process {
 				}
 			}
 
-			for sample in &mut *data {
-				*sample = self.buffer.pop_front().unwrap();
-			}
-
-			// apply volume
-			for sample in &mut *data {
-				// mpv uses `pow(volume, 3)`
-				*sample *= self.volume.powi(3);
+			for sample in data {
+				*sample = self.buffer.pop_front().unwrap() * self.volume.powi(3);
 			}
 
 			let duration = Process::playhead(stream);
@@ -239,12 +245,6 @@ impl Process {
 		let sample_rate = stream.info().sample_rate.unwrap();
 		let playhead = stream.playhead() as f64 / sample_rate as f64;
 		Duration::from_secs_f64(playhead)
-	}
-
-	fn silence(data: &mut [f32]) {
-		for sample in data.iter_mut() {
-			*sample = 0.;
-		}
 	}
 }
 
